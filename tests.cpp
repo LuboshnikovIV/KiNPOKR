@@ -578,8 +578,196 @@ void Tests::hasCycles_test_data(){
     }
 }
 
-void Tests::analyzeZoneWithExtraNodes_test(){ QFAIL("Not implemented"); }
-void Tests::analyzeZoneWithExtraNodes_test_data(){}
+void Tests::analyzeZoneWithExtraNodes_test(){
+    QFETCH(NODE_PARENT_HASH, amountOfParents);
+    QFETCH(Node*, rootNode);
+    QFETCH(Node*, node);
+    QFETCH(QSet<Node*>, expectedExtraNodes);
+
+    TreeCoverageAnalyzer analyzer;
+    analyzer.root = rootNode;
+
+    // Заполняем treeMap
+    for (auto it = amountOfParents.constBegin(); it != amountOfParents.constEnd(); ++it) {
+        analyzer.treeMap.append(it.key());
+    }
+    if (rootNode && !analyzer.treeMap.contains(rootNode)) {
+        analyzer.treeMap.append(rootNode);
+    }
+
+    // Вызов метода
+    analyzer.analyzeZoneWithExtraNodes(node);
+
+    // Проверка результатов
+    QCOMPARE(analyzer.extraNodes, expectedExtraNodes);
+
+    // Очистка
+    analyzer.clearData();
+}
+void Tests::analyzeZoneWithExtraNodes_test_data(){
+    QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
+    QTest::addColumn<Node*>("rootNode");
+    QTest::addColumn<Node*>("node");
+    QTest::addColumn<QSet<Node*>>("expectedExtraNodes");
+
+    // Тест 1: Нет узлов в зоне
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        QTest::newRow("NoNodesInExtraZone") << amountOfParents
+                                           << a
+                                           << a
+                                           << QSet<Node*>();
+    }
+
+    // Тест 2: Один лишний узел до целевого узла
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        addEdge(c, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << c;
+        QTest::newRow("OneExtraNodeBeforeTarget") << amountOfParents
+                                                 << c
+                                                 << c
+                                                 << expectedExtraNodes;
+    }
+
+    // Тест 3: Несколько лишних узлов до целевого узла
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Selected);
+        addEdge(d, c, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(c, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << c << e;
+        QTest::newRow("SomeExtraNodeBeforeTarget") << amountOfParents
+                                                    << d
+                                                    << d
+                                                    << expectedExtraNodes;
+    }
+
+    // Тест 4: В одной ветке два отмеченных узла до целевого
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << c;
+        QTest::newRow("SomeExtraNodesInOneBranch") << amountOfParents
+                                                   << c
+                                                   << c
+                                                   << expectedExtraNodes;
+    }
+
+    // Тест 5: Смешанные типы узлов до целевого
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Base);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, g, amountOfParents);
+        addEdge(g, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << c;
+        QTest::newRow("MixedTypeOfNodesBeforeTarget") << amountOfParents
+                                                   << c
+                                                   << c
+                                                   << expectedExtraNodes;
+    }
+
+    // Тест 6: Все узлы до целевого не отмечены
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e,a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QTest::newRow("BaseTypeOfNodesBeforeTarget") << amountOfParents
+                                                   << c
+                                                   << c
+                                                   << QSet<Node*>();
+    }
+
+    // Тест 7: Множество лишних узлов в различных ветках
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Selected);
+        Node* h = createNode("h", Node::Shape::Base);
+        Node* i = createNode("i", Node::Shape::Selected);
+        Node* k = createNode("k", Node::Shape::Selected);
+        addEdge(c, d, amountOfParents);
+        addEdge(c, e, amountOfParents);
+        addEdge(d, f, amountOfParents);
+        addEdge(d, g, amountOfParents);
+        addEdge(f, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        addEdge(e, k, amountOfParents);
+        addEdge(e, h, amountOfParents);
+        addEdge(h, i, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << f << g << i << k;
+        QTest::newRow("MultiExtraNodesInDifferentBranches") << amountOfParents
+                                                     << c
+                                                     << c
+                                                     << expectedExtraNodes;
+    }
+
+    // Тест 8: Все узлы до целевого отмечены
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* f = createNode("f", Node::Shape::Selected);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << c;
+        QTest::newRow("MultiExtraNodesInDifferentBranches") << amountOfParents
+                                                            << c
+                                                            << c
+                                                            << expectedExtraNodes;
+    }
+}
 
 void Tests::analyzeZoneWithMissingNodes_test(){ QFAIL("Not implemented"); }
 void Tests::analyzeZoneWithMissingNodes_test_data(){}
