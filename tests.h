@@ -21,11 +21,6 @@ private:
         amountOfParents[child] = amountOfParents.value(child, 0) + 1;
     }
 
-    void cleanupNodes(QList<Node*>& nodes) {
-        qDeleteAll(nodes);
-        nodes.clear();
-    }
-
 private slots:
     // data driven тесты для функции parseDOT
     void parseDOT_test();
