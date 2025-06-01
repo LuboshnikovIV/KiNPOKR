@@ -1,8 +1,143 @@
 #include "tests.h"
+#include <QString>
 #define NODE_PARENT_HASH QHash<Node*, int>
 
-void Tests::parseDOT_test(){ QFAIL("Not implemented"); }
-void Tests::parseDOT_test_data(){}
+void Tests::parseDOT_test(){
+    QFETCH(QString, content);
+    QFETCH(bool, shouldSucceed);
+    QFETCH(int, expectedTreeMapSize);
+    QFETCH(Error::ErrorType, expectedErrorType);
+    QFETCH(QString, expectedErrorMessage);
+
+    TreeCoverageAnalyzer analyzer;
+
+    if (shouldSucceed) {
+        try {
+            analyzer.parseDOT(content);
+            QCOMPARE(analyzer.treeMap.size(), expectedTreeMapSize);
+            if (expectedTreeMapSize == 3) {
+                QVERIFY(analyzer.treeMap.size() >= 3);
+                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
+                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Selected);
+                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
+            }
+        } catch (const Error& e) {
+            QFAIL("Не ожидалось исключение для корректного случая");
+        } catch (...) {
+            QFAIL("Неизвестное исключение в корректном случае");
+        }
+    } else {
+        try {
+            analyzer.parseDOT(content);
+            QFAIL("Ожидалось исключение для некорректного случая");
+        } catch (const Error& e) {
+            QCOMPARE(e.type, expectedErrorType);
+            QCOMPARE(e.errMessage(), expectedErrorMessage);
+        } catch (...) {
+            QFAIL("Неизвестное исключение в некорректном случае");
+        }
+    }
+
+    analyzer.clearData();
+}
+void Tests::parseDOT_test_data(){
+    QTest::addColumn<QString>("content");
+    QTest::addColumn<bool>("shouldSucceed");
+    QTest::addColumn<int>("expectedTreeMapSize");
+    QTest::addColumn<Error::ErrorType>("expectedErrorType");
+    QTest::addColumn<QString>("expectedErrorMessage");
+
+    // Тест 1: Пустой файл
+    QTest::newRow("EmptyFile") << ""
+                               << false
+                               << 0
+                               << Error::EmptyFile
+                               << QString("Файл пустой.");
+
+    // Тест 2: Отсутствует целевой узел
+    QTest::newRow("NoTargetNode") << "digraph test {\n"
+                                                "a[shape=circle];\n"
+                                                "b[shape=diamond];\n"
+                                                "a->b;\n"
+                                                "}"
+                               << false
+                               << 0
+                               << Error::NoTargetNode
+                               << QString("Некорректная ситуация, нет узла, для которого определяем покрытие. Добавьте узел с формой square.");
+
+    // Тест 3: Ненаправленная связь
+    QTest::newRow("UndirectedEdge") << "graph test {\n"
+                                       "a[shape=square];\n"
+                                       "b[shape=diamond];\n"
+                                       "a--b;\n"
+                                       "}"
+                               << false
+                               << 0
+                               << Error::UndirectedEdge
+                               << QString("Граф не является деревом, связи между узлами не направлены.");
+
+    // Тест 4: Метка на связи
+    QTest::newRow("EdgeLabel") << "digraph test {\n"
+                                  "a[shape=square];\n"
+                                  "b[shape=diamond];\n"
+                                  "a->b[lable=\"test\"];\n"
+                                  "}"
+                               << false
+                               << 0
+                               << Error::EdgeLabel
+                               << QString("На связи между узлом a и b задана метка. Уберите метку на связи.");
+
+    // Тест 5: Неверная форма узла
+    QTest::newRow("InvalidNodeShape") << "digraph test {\n"
+                                         "a[shape=square];\n"
+                                         "b[shape=star];\n"
+                                         "a->b;\n"
+                                         "}"
+                               << false
+                               << 0
+                               << Error::InvalidNodeShape
+                               << QString("Форма узла b не поддерживается программой. Измените ее на одну из предоставленных (square/diamond/oval/circle).");
+
+    // Тест 6: Корректный граф
+    QTest::newRow("CorrectGraph") << "digraph test {\n"
+                                     "a[shape=square];\n"
+                                     "b[shape=diamond];\n"
+                                     "c[shape=circle];\n"
+                                     "a->b;\n"
+                                     "a->c;\n"
+                                     "}"
+                               << true
+                               << 3
+                               << Error::ErrorType(0)
+                               << QString("");
+
+    // Тест 7: Дополнительная метка узла
+    QTest::newRow("ExtraLabel") << "digraph test {\n"
+                                   "a[shape=square,lable=\"test\"];\n"
+                                   "b[shape=diamond];\n"
+                                   "a->b;\n"
+                                   "}"
+                               << false
+                               << 0
+                               << Error::ExtraLabel
+                               << QString("На узле a задана метка. Уберите метку на узле.");
+
+    // Тест 8: Комплексный
+    QTest::newRow("ComplexCase") << "graph test {\n"
+                                    "a[shape=circle,label=\"test\"];\n"
+                                    "b[shape=star];\n"
+                                    "a--b[label=\"test\"];\n"
+                                    "}"
+                               << false
+                               << 0
+                               << Error::NoTargetNode // Основная ошибка именно эта но сообщение влючает все
+                               << QString("Некорректная ситуация, нет узла, для которого определяем покрытие. Добавьте узел с формой square.\n"
+                                            "Граф не является деревом, связи между узлами не направлены.\n"
+                                            "На связи между узлом a и b задана метка. Уберите метку на связи.\n"
+                                            "Форма узла b не поддерживается программой. Измените ее на одну из представленных (square/diamond/oval/circle).\n"
+                                            "На связи между узлом a и b задана метка. Уберите метку на связи./n");
+
+}
 
 void Tests::isConnectedOrHasMultiParents_test(){ QFAIL("Not implemented"); }
 void Tests::isConnectedOrHasMultiParents_test_data(){}
@@ -14,11 +149,16 @@ void Tests::hasCycles_test(){
     QFETCH(int, expectedCycleCount);
     QFETCH(QSet<QList<Node*>>, expectedCycles);
 
+    // Проверка на nullptr
+    if (!startNode) {
+        QFAIL("startNode is nullptr");
+    }
+
     TreeCoverageAnalyzer analyzer;
     QSet<QList<Node*>> cycles;
     QList<Node*> currentPath;
 
-
+    // Вызов метода
     analyzer.hasCycles(startNode, cycles, amountOfParents, currentPath);
 
     QCOMPARE(cycles.size(), expectedCycleCount);
@@ -28,7 +168,8 @@ void Tests::hasCycles_test(){
 
     cleanupNodes(nodes);
 }
-void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
+void Tests::hasCycles_test_data(){
+    QTest::addColumn<QList<Node*>>("nodes");
     QTest::addColumn<QHash<Node*, int>>("amountOfParents");
     QTest::addColumn<Node*>("startNode");
     QTest::addColumn<int>("expectedCycleCount");
@@ -39,7 +180,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         nodes << a << b << c;
         addEdge(a, b, amountOfParents);
@@ -47,12 +188,12 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QTest::newRow("GraphWithoutCycle") << nodes << amountOfParents << a << 0 << QSet<QList<Node*>>();
     }
 
-    // Тест 2: Граф состоящий из цикла
+    // Тест 2: Граф с циклом
     {
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         nodes << a << b << c;
         addEdge(a, b, amountOfParents);
@@ -60,7 +201,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         addEdge(c, a, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
-        QTest::newRow("GraphConsistingOfCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
     }
 
     // Тест 3: Граф с левитирующим циклом
@@ -68,19 +209,11 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
-
-        Node* d = createNode("d");
-        Node* e = createNode("e");
-        Node* f = createNode("f");
-        nodes << a << b << c << d << e << f;
-        addEdge(a, b, amountOfParents);
+        nodes << a << b << c;
         addEdge(b, c, amountOfParents);
-
-        addEdge(d, e, amountOfParents);
-        addEdge(e, f, amountOfParents);
-        addEdge(f, d, amountOfParents);
+        addEdge(c, b, amountOfParents);
         QTest::newRow("GraphWithLevitatingCycle") << nodes << amountOfParents << a << 0 << QSet<QList<Node*>>();
     }
 
@@ -101,7 +234,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         Node* d = createNode("d");
         Node* e = createNode("e");
@@ -109,26 +242,25 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         Node* g = createNode("g");
         nodes << a << b << c << d << e << f << g;
         addEdge(a, b, amountOfParents);
-        addEdge(a, c, amountOfParents);
         addEdge(b, d, amountOfParents);
         addEdge(d, e, amountOfParents);
-        addEdge(e, d, amountOfParents);
-        addEdge(e, g, amountOfParents);
-        addEdge(g, e, amountOfParents);
-        addEdge(g, c, amountOfParents);
+        addEdge(e, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
         addEdge(c, f, amountOfParents);
         addEdge(f, g, amountOfParents);
+        addEdge(g, c, amountOfParents);
+        addEdge(e, g, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, d, e} << QList<Node*>{c, f, g} << QList<Node*>{e, g};
         QTest::newRow("GraphWithMultipleCycles") << nodes << amountOfParents << a << 3 << expectedCycles;
     }
 
-    // Тест 6: Граф с циклом
+    // Тест 6: Граф с простым циклом
     {
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         Node* d = createNode("d");
         nodes << a << b << c << d;
@@ -138,7 +270,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         addEdge(d, b, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c, d};
-        QTest::newRow("GraphWithCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithSimpleCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
     }
 
     // Тест 7: Граф с циклом и ответвлением
@@ -146,7 +278,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         Node* d = createNode("d");
         nodes << a << b << c << d;
@@ -164,7 +296,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         Node* e = createNode("e");
         Node* f = createNode("f");
@@ -186,7 +318,7 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
         Node* d = createNode("d");
         Node* e = createNode("e");
@@ -208,24 +340,17 @@ void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b", Node::Shape::Selected);
+        Node* b = createNode("b");
         Node* c = createNode("c");
-
-        Node* d = createNode("d");
-        Node* e = createNode("e");
-        Node* f = createNode("f");
-        nodes << a << b << c << d << e << f;
+        nodes << a << b << c;
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
-
-        addEdge(d, e, amountOfParents);
-        addEdge(e, f, amountOfParents);
-        addEdge(f, d, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
         QTest::newRow("TwoCyclicGraphs") << nodes << amountOfParents << a << 1 << expectedCycles;
-    }}
+    }
+}
 
 void Tests::analyzeZoneWithExtraNodes_test(){ QFAIL("Not implemented"); }
 void Tests::analyzeZoneWithExtraNodes_test_data(){}

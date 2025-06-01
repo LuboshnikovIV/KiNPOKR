@@ -6,7 +6,26 @@ TreeCoverageAnalyzer::~TreeCoverageAnalyzer() = default;
 void TreeCoverageAnalyzer::parseDOT(const QString& content){
     Q_UNUSED(content);
 }
-void TreeCoverageAnalyzer::clearData(){}
+void TreeCoverageAnalyzer::clearData(){
+    // Очищаем treeMap и освобождаем память
+    qDeleteAll(treeMap);
+    treeMap.clear();
+
+    // Очищаем остальные поля
+    cycles.clear();
+    multiParents.clear();
+    amountOfParents.clear();
+    missingNodes.clear();
+    extraNodes.clear();
+    redundantNodes.clear();
+
+    // Сбрасываем указатель root
+    root = nullptr;
+
+    // Сбрасываем флаги
+    isConnected = false;
+    nodeIsCovered = false;
+}
 void TreeCoverageAnalyzer::fillHash(QList<Node*>& treeMap, QHash<Node*, int>& amountOfParents){
     Q_UNUSED(treeMap);
     Q_UNUSED(amountOfParents);
