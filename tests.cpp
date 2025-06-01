@@ -7,9 +7,28 @@ void Tests::parseDOT_test_data(){}
 void Tests::isConnectedOrHasMultiParents_test(){ QFAIL("Not implemented"); }
 void Tests::isConnectedOrHasMultiParents_test_data(){}
 
-void Tests::hasCycles_test_data()
-{
-    QTest::addColumn<QList<Node*>>("nodes");
+void Tests::hasCycles_test(){
+    QFETCH(QList<Node*>, nodes);
+    QFETCH(NODE_PARENT_HASH, amountOfParents);
+    QFETCH(Node*, startNode);
+    QFETCH(int, expectedCycleCount);
+    QFETCH(QSet<QList<Node*>>, expectedCycles);
+
+    TreeCoverageAnalyzer analyzer;
+    QSet<QList<Node*>> cycles;
+    QList<Node*> currentPath;
+
+
+    analyzer.hasCycles(startNode, cycles, amountOfParents, currentPath);
+
+    QCOMPARE(cycles.size(), expectedCycleCount);
+    if (expectedCycleCount > 0) {
+        QVERIFY(cycles == expectedCycles);
+    }
+
+    cleanupNodes(nodes);
+}
+void Tests::hasCycles_test_data(){QTest::addColumn<QList<Node*>>("nodes");
     QTest::addColumn<QHash<Node*, int>>("amountOfParents");
     QTest::addColumn<Node*>("startNode");
     QTest::addColumn<int>("expectedCycleCount");
@@ -20,7 +39,7 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         nodes << a << b << c;
         addEdge(a, b, amountOfParents);
@@ -28,12 +47,12 @@ void Tests::hasCycles_test_data()
         QTest::newRow("GraphWithoutCycle") << nodes << amountOfParents << a << 0 << QSet<QList<Node*>>();
     }
 
-    // Тест 2: Граф с циклом
+    // Тест 2: Граф состоящий из цикла
     {
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         nodes << a << b << c;
         addEdge(a, b, amountOfParents);
@@ -41,7 +60,7 @@ void Tests::hasCycles_test_data()
         addEdge(c, a, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
-        QTest::newRow("GraphWithCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphConsistingOfCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
     }
 
     // Тест 3: Граф с левитирующим циклом
@@ -49,11 +68,19 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
-        nodes << a << b << c;
+
+        Node* d = createNode("d");
+        Node* e = createNode("e");
+        Node* f = createNode("f");
+        nodes << a << b << c << d << e << f;
+        addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
-        addEdge(c, b, amountOfParents);
+
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, d, amountOfParents);
         QTest::newRow("GraphWithLevitatingCycle") << nodes << amountOfParents << a << 0 << QSet<QList<Node*>>();
     }
 
@@ -74,7 +101,7 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         Node* d = createNode("d");
         Node* e = createNode("e");
@@ -82,25 +109,26 @@ void Tests::hasCycles_test_data()
         Node* g = createNode("g");
         nodes << a << b << c << d << e << f << g;
         addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
         addEdge(b, d, amountOfParents);
         addEdge(d, e, amountOfParents);
-        addEdge(e, b, amountOfParents);
-        addEdge(a, c, amountOfParents);
+        addEdge(e, d, amountOfParents);
+        addEdge(e, g, amountOfParents);
+        addEdge(g, e, amountOfParents);
+        addEdge(g, c, amountOfParents);
         addEdge(c, f, amountOfParents);
         addEdge(f, g, amountOfParents);
-        addEdge(g, c, amountOfParents);
-        addEdge(e, g, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, d, e} << QList<Node*>{c, f, g} << QList<Node*>{e, g};
         QTest::newRow("GraphWithMultipleCycles") << nodes << amountOfParents << a << 3 << expectedCycles;
     }
 
-    // Тест 6: Граф с простым циклом
+    // Тест 6: Граф с циклом
     {
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         Node* d = createNode("d");
         nodes << a << b << c << d;
@@ -110,7 +138,7 @@ void Tests::hasCycles_test_data()
         addEdge(d, b, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c, d};
-        QTest::newRow("GraphWithSimpleCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
     }
 
     // Тест 7: Граф с циклом и ответвлением
@@ -118,7 +146,7 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         Node* d = createNode("d");
         nodes << a << b << c << d;
@@ -136,7 +164,7 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         Node* e = createNode("e");
         Node* f = createNode("f");
@@ -158,7 +186,7 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
         Node* d = createNode("d");
         Node* e = createNode("e");
@@ -180,40 +208,24 @@ void Tests::hasCycles_test_data()
         QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
+        Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c");
-        nodes << a << b << c;
+
+        Node* d = createNode("d");
+        Node* e = createNode("e");
+        Node* f = createNode("f");
+        nodes << a << b << c << d << e << f;
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
+
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, d, amountOfParents);
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
         QTest::newRow("TwoCyclicGraphs") << nodes << amountOfParents << a << 1 << expectedCycles;
-    }
-}
-
-void Tests::hasCycles_test()
-{
-    QFETCH(QList<Node*>, nodes);
-    QFETCH(NODE_PARENT_HASH, amountOfParents);
-    QFETCH(Node*, startNode);
-    QFETCH(int, expectedCycleCount);
-    QFETCH(QSet<QList<Node*>>, expectedCycles);
-
-    TreeCoverageAnalyzer analyzer;
-    QSet<QList<Node*>> cycles;
-    QList<Node*> currentPath;
-
-
-    analyzer.hasCycles(startNode, cycles, amountOfParents, currentPath);
-
-    QCOMPARE(cycles.size(), expectedCycleCount);
-    if (expectedCycleCount > 0) {
-        QVERIFY(cycles == expectedCycles);
-    }
-
-    cleanupNodes(nodes);
-}
+    }}
 
 void Tests::analyzeZoneWithExtraNodes_test(){ QFAIL("Not implemented"); }
 void Tests::analyzeZoneWithExtraNodes_test_data(){}

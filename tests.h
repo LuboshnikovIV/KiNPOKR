@@ -12,6 +12,19 @@ class Tests : public QObject
     Q_OBJECT
 
 private:
+    Node* createNode(const QString& name, Node::Shape shape = Node::Shape::Base) {
+        return new Node(name, shape);
+    }
+
+    void addEdge(Node* parent, Node* child, QHash<Node*, int>& amountOfParents) {
+        parent->children.append(child);
+        amountOfParents[child] = amountOfParents.value(child, 0) + 1;
+    }
+
+    void cleanupNodes(QList<Node*>& nodes) {
+        qDeleteAll(nodes);
+        nodes.clear();
+    }
 
 private slots:
     // data driven тесты для функции parseDOT
