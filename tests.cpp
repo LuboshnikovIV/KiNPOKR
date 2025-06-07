@@ -1,6 +1,7 @@
 #include "tests.h"
 #include <QString>
 #define NODE_PARENT_HASH QHash<Node*, int>
+#define REDUNDANT_NODES QSet<QPair<Node*, Node*>>
 
 void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected, const QString& containerName) {
     QSet<Node*> extraInActual = actual - expected; // Узлы которые есть в контейнере после вызова метода, но нет в ожидаемом контейнере
@@ -18,6 +19,38 @@ void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>&
     }
     if (!extraInExpected.isEmpty()) {
         qDebug() << "Пропущенные узлы: " << extraExpectedNames;
+    }
+}
+
+void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected, const QString& containerName) {
+    QSet<QPair<Node*, Node*>> extraInActual = actual - expected; // Пары которые есть в контейнере после вызова метода, но нет в ожидаемом контейнере
+    QSet<QPair<Node*, Node*>> extraInExpected = expected - actual; // Пары, которые есть в ожидаемом контейнере с узлами, но нет в контейнере после вызова метода
+    QString extraActualNames, extraExpectedNames;
+
+    // Собираем имена для extraInActual
+    for (const QPair<Node*, Node*>& pair : extraInActual) {
+        Node* first = pair.first;
+        Node* second = pair.second;
+        QString firstName = first ? (!first->name.isEmpty() ? first->name : QString("Unnamed(0x%1)").arg((quintptr)first, 0, 16)) : "nullptr";
+        QString secondName = second ? (!second->name.isEmpty() ? second->name : QString("Unnamed(0x%1)").arg((quintptr)second, 0, 16)) : "nullptr";
+        extraActualNames += firstName + "-" + secondName + " ";
+    }
+
+    // Собираем имена для extraInExpected
+    for (const QPair<Node*, Node*>& pair : extraInExpected) {
+        Node* first = pair.first;
+        Node* second = pair.second;
+        QString firstName = first ? (!first->name.isEmpty() ? first->name : QString("Unnamed(0x%1)").arg((quintptr)first, 0, 16)) : "nullptr";
+        QString secondName = second ? (!second->name.isEmpty() ? second->name : QString("Unnamed(0x%1)").arg((quintptr)second, 0, 16)) : "nullptr";
+        extraExpectedNames += firstName + "-" + secondName + " ";
+    }
+
+    qDebug() << "Difference in" << containerName << ":";
+    if (!extraInActual.isEmpty()) {
+        qDebug() << "Extra in actual (not expected):" << extraActualNames.trimmed();
+    }
+    if (!extraInExpected.isEmpty()) {
+        qDebug() << "Missing in actual (expected):" << extraExpectedNames.trimmed();
     }
 }
 
@@ -1233,6 +1266,283 @@ void Tests::analyzeZoneWithMissingNodes_test_data(){
     }
 }
 
-void Tests::analyzeZoneWithRedundant_test(){ QFAIL("Not implemented"); }
-void Tests::analyzeZoneWithRedundant_test_data(){}
+void Tests::analyzeZoneWithRedundant_test(){
+    QFETCH(NODE_PARENT_HASH, amountOfParents);
+    QFETCH(Node*, node);
+    QFETCH(REDUNDANT_NODES, expectedRedundantNodes);
 
+    TreeCoverageAnalyzer analyzer;
+
+    // Выводом разницы при провале
+    if (!QTest::qCompare(analyzer.redundantNodes, expectedRedundantNodes, "analyzer.redundantNodes", "expectedRedundantNodes", __FILE__, __LINE__)) {
+        printNodeSetDifferenceForRedundant(analyzer.redundantNodes, expectedRedundantNodes, "redundantNodes");
+    }
+
+    // Вызов метода
+    analyzer.analyzeZoneWithExtraNodes(node);
+
+    // Проверка результатов
+    QCOMPARE(analyzer.redundantNodes, expectedRedundantNodes);
+
+    // Очистка
+    analyzer.clearData();
+}
+void Tests::analyzeZoneWithRedundant_test_data(){
+    QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
+    QTest::addColumn<Node*>("node");
+    QTest::addColumn<REDUNDANT_NODES>("expectedRedundantNodes");
+
+    // Тест 1: Один узел, нет избыточных
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        QTest::newRow("NoRedundant") << amountOfParents
+                                     << a
+                                     << QSet<QPair<Node*, Node*>>();
+    }
+
+    // Тест 2: Один избыточный узел после отмеченного
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(b, c);
+        QTest::newRow("OneRedundantNode") << amountOfParents
+                                          << a
+                                          << expectedRedundantNodes;
+    }
+
+    // Тест 3: Множество избыточных узлов после отмеченного
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(b, c) << qMakePair(c, d);
+        QTest::newRow("MultiRedundantNodes") << amountOfParents
+                                             << a
+                                             << expectedRedundantNodes;
+    }
+
+    // Тест 4: Избыточные узлы находятся в разных ветках
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(c, e, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(b, d) << qMakePair(c, e);
+        QTest::newRow("RedundantNodesInDiffrentBranches") << amountOfParents
+                                                          << a
+                                                          << expectedRedundantNodes;
+    }
+
+    // Тест 5: Зона с избыточными узлами есть, но избыточных узлов нет
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        QTest::newRow("ZoneWithRedundantIsThereButNotRedundantNodes") << amountOfParents
+                                                                      << a
+                                                                      << QSet<QPair<Node*, Node*>>();
+    }
+
+    // Тест 6: Избыточный узел имеет высокую вложенность
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(d, f);
+        QTest::newRow("RedundantNodesHasHightNesting") << amountOfParents
+                                                       << a
+                                                       << expectedRedundantNodes;
+    }
+
+    // Тест 7: Не во всех ветках есть избыточный узел
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, e, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(b, d);
+        QTest::newRow("NotInAllBranchesHaveRedundantNode") << amountOfParents
+                                                           << a
+                                                           << expectedRedundantNodes;
+    }
+
+    // Тест 8: Избыточный узел до целевого
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* r = createNode("r", Node::Shape::Selected);
+        addEdge(e, r, amountOfParents);
+        addEdge(r, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(e, r);
+        QTest::newRow("RedundantNodeBeforeTargetNode") << amountOfParents
+                                                       << a
+                                                       << expectedRedundantNodes;
+    }
+
+    // Тест 9: Избыточный узел не находится в ветке с целевым
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* r = createNode("r", Node::Shape::Selected);
+        addEdge(e, r, amountOfParents);
+        addEdge(e, d, amountOfParents);
+        addEdge(d, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(e, r);
+        QTest::newRow("RedundantNodeNotLocateInBranchWithTarget") << amountOfParents
+                                                                  << a
+                                                                  << expectedRedundantNodes;
+    }
+
+    // Тест 10: Комбинированное расположение избыточных узлов
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Selected);
+        Node* r = createNode("r", Node::Shape::Selected);
+        addEdge(e, r, amountOfParents);
+        addEdge(e, d, amountOfParents);
+        addEdge(d, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, g, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(e, r) << qMakePair(e, d) << qMakePair(b, g);
+        QTest::newRow("MixedLocateRedundantNodes") << amountOfParents
+                                                   << a
+                                                   << expectedRedundantNodes;
+    }
+
+    // Тест 11: Сложный граф с высокой вложенностью
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Base);
+        Node* b = createNode("b", Node::Shape::Target);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Selected);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* j = createNode("j", Node::Shape::Selected);
+        Node* k = createNode("k", Node::Shape::Selected);
+        Node* l = createNode("l", Node::Shape::Selected);
+        Node* m = createNode("m", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, j, amountOfParents);
+        addEdge(b, g, amountOfParents);
+        addEdge(b, i, amountOfParents);
+        addEdge(j, l, amountOfParents);
+        addEdge(j, m, amountOfParents);
+        addEdge(g, k, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(e, h, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(j, l) << qMakePair(c, e) << qMakePair(c, f) << qMakePair(c, h);
+        QTest::newRow("DifficultGraphWithHightNesting") << amountOfParents
+                                                        << a
+                                                        << expectedRedundantNodes;
+    }
+
+    // Тест 12: Все узлы в графе кроме корня отмечены
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Selected);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Selected);
+        Node* h = createNode("h", Node::Shape::Selected);
+        Node* i = createNode("i", Node::Shape::Selected);
+        Node* j = createNode("j", Node::Shape::Selected);
+        Node* k = createNode("k", Node::Shape::Selected);
+        Node* l = createNode("l", Node::Shape::Selected);
+        Node* m = createNode("m", Node::Shape::Selected);
+        Node* n = createNode("n", Node::Shape::Selected);
+        Node* o = createNode("o", Node::Shape::Selected);
+        Node* p = createNode("p", Node::Shape::Selected);
+        Node* r = createNode("r", Node::Shape::Selected);
+        Node* z = createNode("z", Node::Shape::Target);
+        addEdge(z, a, amountOfParents);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(a, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, g, amountOfParents);
+        addEdge(c, h, amountOfParents);
+        addEdge(c, i, amountOfParents);
+        addEdge(h, j, amountOfParents);
+        addEdge(i, k, amountOfParents);
+        addEdge(i, l, amountOfParents);
+        addEdge(d, m, amountOfParents);
+        addEdge(m, n, amountOfParents);
+        addEdge(m, o, amountOfParents);
+        addEdge(m, p, amountOfParents);
+        addEdge(p, r, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f) << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h) << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k) << qMakePair(a, l) << qMakePair(a, d) << qMakePair(a, m) << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p) << qMakePair(a, r);
+        QTest::newRow("AllNodesSelectedExceptTarget") << amountOfParents
+                                                      << z
+                                                      << expectedRedundantNodes;
+    }
+}
