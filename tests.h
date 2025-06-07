@@ -21,6 +21,8 @@ private:
         amountOfParents[child] = amountOfParents.value(child, 0) + 1;
     }
 
+    void printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected, const QString& containerName);
+
 private slots:
     // data driven тесты для функции parseDOT
     void parseDOT_test();

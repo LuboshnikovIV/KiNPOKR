@@ -2,6 +2,25 @@
 #include <QString>
 #define NODE_PARENT_HASH QHash<Node*, int>
 
+void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected, const QString& containerName) {
+    QSet<Node*> extraInActual = actual - expected; // Узлы которые есть в контейнере после вызова метода, но нет в ожидаемом контейнере
+    QSet<Node*> extraInExpected = expected - actual; // Узлы которые есть в ожидаемом контейнере с узлами, но нет в контейнере после вызова метода
+    QString extraActualNames, extraExpectedNames;
+    for (Node* n : extraInActual) {
+        extraActualNames += n->name + " ";
+    }
+    for (Node* n : extraInExpected) {
+        extraExpectedNames += n->name + " ";
+    }
+    qDebug() << "Разница в " << containerName << ":";
+    if (!extraInActual.isEmpty()) {
+        qDebug() << "Лишние узлы: " << extraActualNames;
+    }
+    if (!extraInExpected.isEmpty()) {
+        qDebug() << "Пропущенные узлы: " << extraExpectedNames;
+    }
+}
+
 void Tests::parseDOT_test(){
     QFETCH(QString, content);
     QFETCH(bool, shouldSucceed);
@@ -373,11 +392,6 @@ void Tests::hasCycles_test(){
     QFETCH(int, expectedCycleCount);
     QFETCH(QSet<QList<Node*>>, expectedCycles);
 
-    // Проверка на nullptr
-    if (!startNode) {
-        QFAIL("startNode is nullptr");
-    }
-
     TreeCoverageAnalyzer analyzer;
     QSet<QList<Node*>> cycles;
     QList<Node*> currentPath;
@@ -580,23 +594,18 @@ void Tests::hasCycles_test_data(){
 
 void Tests::analyzeZoneWithExtraNodes_test(){
     QFETCH(NODE_PARENT_HASH, amountOfParents);
-    QFETCH(Node*, rootNode);
     QFETCH(Node*, node);
     QFETCH(QSet<Node*>, expectedExtraNodes);
 
     TreeCoverageAnalyzer analyzer;
-    analyzer.root = rootNode;
-
-    // Заполняем treeMap
-    for (auto it = amountOfParents.constBegin(); it != amountOfParents.constEnd(); ++it) {
-        analyzer.treeMap.append(it.key());
-    }
-    if (rootNode && !analyzer.treeMap.contains(rootNode)) {
-        analyzer.treeMap.append(rootNode);
-    }
 
     // Вызов метода
     analyzer.analyzeZoneWithExtraNodes(node);
+
+    // Выводом разницы при провале
+    if (!QTest::qCompare(analyzer.extraNodes, expectedExtraNodes, "analyzer.extraNodes", "expectedExtraNodes", __FILE__, __LINE__)) {
+        printNodeSetDifference(analyzer.extraNodes, expectedExtraNodes, "extraNodes");
+    }
 
     // Проверка результатов
     QCOMPARE(analyzer.extraNodes, expectedExtraNodes);
@@ -606,7 +615,6 @@ void Tests::analyzeZoneWithExtraNodes_test(){
 }
 void Tests::analyzeZoneWithExtraNodes_test_data(){
     QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
-    QTest::addColumn<Node*>("rootNode");
     QTest::addColumn<Node*>("node");
     QTest::addColumn<QSet<Node*>>("expectedExtraNodes");
 
@@ -617,7 +625,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         Node* b = createNode("b", Node::Shape::Selected);
         addEdge(a, b, amountOfParents);
         QTest::newRow("NoNodesInExtraZone") << amountOfParents
-                                           << a
                                            << a
                                            << QSet<Node*>();
     }
@@ -633,7 +640,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         QSet<Node*> expectedExtraNodes;
         expectedExtraNodes << c;
         QTest::newRow("OneExtraNodeBeforeTarget") << amountOfParents
-                                                 << c
                                                  << c
                                                  << expectedExtraNodes;
     }
@@ -654,7 +660,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         expectedExtraNodes << c << e;
         QTest::newRow("SomeExtraNodeBeforeTarget") << amountOfParents
                                                     << d
-                                                    << d
                                                     << expectedExtraNodes;
     }
 
@@ -671,7 +676,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         QSet<Node*> expectedExtraNodes;
         expectedExtraNodes << c;
         QTest::newRow("SomeExtraNodesInOneBranch") << amountOfParents
-                                                   << c
                                                    << c
                                                    << expectedExtraNodes;
     }
@@ -694,7 +698,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         expectedExtraNodes << c;
         QTest::newRow("MixedTypeOfNodesBeforeTarget") << amountOfParents
                                                    << c
-                                                   << c
                                                    << expectedExtraNodes;
     }
 
@@ -711,7 +714,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         addEdge(e,a, amountOfParents);
         addEdge(a, b, amountOfParents);
         QTest::newRow("BaseTypeOfNodesBeforeTarget") << amountOfParents
-                                                   << c
                                                    << c
                                                    << QSet<Node*>();
     }
@@ -742,7 +744,6 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         expectedExtraNodes << f << g << i << k;
         QTest::newRow("MultiExtraNodesInDifferentBranches") << amountOfParents
                                                      << c
-                                                     << c
                                                      << expectedExtraNodes;
     }
 
@@ -764,13 +765,473 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         expectedExtraNodes << c;
         QTest::newRow("MultiExtraNodesInDifferentBranches") << amountOfParents
                                                             << c
-                                                            << c
                                                             << expectedExtraNodes;
     }
 }
 
-void Tests::analyzeZoneWithMissingNodes_test(){ QFAIL("Not implemented"); }
-void Tests::analyzeZoneWithMissingNodes_test_data(){}
+void Tests::analyzeZoneWithMissingNodes_test(){
+    QFETCH(NODE_PARENT_HASH, amountOfParents);
+    QFETCH(Node*, node);
+    QFETCH(TreeCoverageAnalyzer::CoverageStatus, expectedCoverageStatus);
+    QFETCH(QSet<Node*>, expectedMissingNodes);
+
+    TreeCoverageAnalyzer analyzer;
+
+    // Вызов метода
+    TreeCoverageAnalyzer::CoverageStatus status = analyzer.analyzeZoneWithMissingNodes(node);
+
+    // Выводом разницы при провале
+    if (!QTest::qCompare(analyzer.missingNodes, expectedMissingNodes, "analyzer.missingNodes", "expectedMissingNodes", __FILE__, __LINE__)) {
+        printNodeSetDifference(analyzer.missingNodes, expectedMissingNodes, "missingNodes");
+    }
+
+    // Проверка результатов
+    QCOMPARE(status, expectedCoverageStatus);
+    QCOMPARE(analyzer.missingNodes, expectedMissingNodes);
+
+    // Очистка
+    analyzer.clearData();
+}
+void Tests::analyzeZoneWithMissingNodes_test_data(){
+    QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
+    QTest::addColumn<Node*>("node");
+    QTest::addColumn<TreeCoverageAnalyzer::CoverageStatus>("expectedCoverageStatus");
+    QTest::addColumn<QSet<Node*>>("expectedMissingNodes");
+
+    // Тест 1: Покрытие целевого узла - есть (простой граф)
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        QTest::newRow("TargetNodeHasCoverege") << amountOfParents
+                                               << a
+                                               << TreeCoverageAnalyzer::FullyCovered
+                                               << QSet<Node*>();
+    }
+
+    // Тест 2: Покрытие целевого узла - есть (простой граф)
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << c;
+        QTest::newRow("TargetNodeHasNotCoverege") << amountOfParents
+                                                  << a
+                                                  << TreeCoverageAnalyzer::PartiallyCovered
+                                                  << expectedMissingNodes;
+    }
+
+    // Тест 3: Покрытие определяется потомками
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(c, f, amountOfParents);
+        addEdge(c, g, amountOfParents);
+        QTest::newRow("CoverageByGrandchildrens") << amountOfParents
+                                                  << a
+                                                  << TreeCoverageAnalyzer::FullyCovered
+                                                  << QSet<Node*>();
+    }
+
+    // Тест 4: Смешанное покрытие
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        QTest::newRow("MixedCoverage") << amountOfParents
+                                       << a
+                                       << TreeCoverageAnalyzer::FullyCovered
+                                       << QSet<Node*>();
+    }
+
+    // Тест 5: Узлы которых не хватает  для покрытия находятся на разных уровнях
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(c, f, amountOfParents);
+        addEdge(c, g, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << e << c;
+        QTest::newRow("MissingNodesLocateAtDiffrentLevel") << amountOfParents
+                                                           << a
+                                                           << TreeCoverageAnalyzer::PartiallyCovered
+                                                           << expectedMissingNodes ;
+    }
+
+    // Тест 6: Узла которого не хватает для покрытия является внуком целевого
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Selected);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(c, f, amountOfParents);
+        addEdge(c, g, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << g;
+        QTest::newRow("MissingNodeIsDiscendant") << amountOfParents
+                                                 << a
+                                                 << TreeCoverageAnalyzer::PartiallyCovered
+                                                 << expectedMissingNodes ;
+    }
+
+    // Тест 7: Единственный узел - целевой
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        QTest::newRow("OnlyTargetNode") << amountOfParents
+                                        << a
+                                        << TreeCoverageAnalyzer::PartiallyCovered
+                                        << QSet<Node*>();
+    }
+
+    // Тест 8: Все предки не отмечены
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* t = createNode("t", Node::Shape::Base);
+        Node* r = createNode("r", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* y = createNode("y", Node::Shape::Base);
+        Node* u = createNode("u", Node::Shape::Base);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* o = createNode("o", Node::Shape::Base);
+        Node* p = createNode("p", Node::Shape::Base);
+        Node* s = createNode("s", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(d, g, amountOfParents);
+        addEdge(d, l, amountOfParents);
+        addEdge(e, y, amountOfParents);
+        addEdge(e, u, amountOfParents);
+        addEdge(c, t, amountOfParents);
+        addEdge(c, r, amountOfParents);
+        addEdge(t, i, amountOfParents);
+        addEdge(t, o, amountOfParents);
+        addEdge(r, s, amountOfParents);
+        addEdge(r, p, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << b << c;
+        QTest::newRow("AllDescendantsNotSelected") << amountOfParents
+                                                   << a
+                                                   << TreeCoverageAnalyzer::PartiallyCovered
+                                                   << expectedMissingNodes;
+    }
+
+    // Тест 9: Переход в redundant зону с покрытием
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        QTest::newRow("TransitionToRedundantZoneWithCoverage") << amountOfParents
+                                                               << a
+                                                               << TreeCoverageAnalyzer::FullyCovered
+                                                               << QSet<Node*>();
+    }
+
+    // Тест 10: Переход в redundant зону без покрытия
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* l = createNode("l", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, l, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << l;
+        QTest::newRow("TransitionToRedundantZoneWithoutCoverage") << amountOfParents
+                                                                  << a
+                                                                  << TreeCoverageAnalyzer::PartiallyCovered
+                                                                  << expectedMissingNodes;
+    }
+
+    // Тест 11: Дети целевого узла отмечены, внуки не отмечены
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(c, g, amountOfParents);
+        addEdge(c, h, amountOfParents);
+        QTest::newRow("TargetChildrebsSelectedButGrandchildrensNot") << amountOfParents
+                                                                     << a
+                                                                     << TreeCoverageAnalyzer::FullyCovered
+                                                                     << QSet<Node*>();
+    }
+
+    // Тест 12: Сложный граф с высокой вложенностью
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Selected);
+        Node* h = createNode("h", Node::Shape::Base);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* j = createNode("j", Node::Shape::Selected);
+        Node* k = createNode("k", Node::Shape::Selected);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* m = createNode("m", Node::Shape::Base);
+        Node* n = createNode("n", Node::Shape::Selected);
+        Node* o = createNode("o", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(d, g, amountOfParents);
+        addEdge(d, h, amountOfParents);
+        addEdge(h, j, amountOfParents);
+        addEdge(c, f, amountOfParents);
+        addEdge(f, i, amountOfParents);
+        addEdge(f, n, amountOfParents);
+        addEdge(i, k, amountOfParents);
+        addEdge(i, l, amountOfParents);
+        addEdge(i, m, amountOfParents);
+        addEdge(n, o, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << e << l << m;
+        QTest::newRow("DifficultGraphWithHightNesting") << amountOfParents
+                                                        << a
+                                                        << TreeCoverageAnalyzer::PartiallyCovered
+                                                        << expectedMissingNodes;
+    }
+
+    // Тест 13: Граф со всеми видами покрытия
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(a, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(b, f, amountOfParents);
+        addEdge(c, h, amountOfParents);
+        addEdge(c, g, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << b << g;
+        QTest::newRow("GraphWithAllTypesCoverage") << amountOfParents
+                                                   << a
+                                                   << TreeCoverageAnalyzer::PartiallyCovered
+                                                   << expectedMissingNodes;
+    }
+
+    // Тест 14: Узлы которых не хватает для покрытия обладают высокой вложенностью
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Base);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* p = createNode("p", Node::Shape::Selected);
+        Node* u = createNode("u", Node::Shape::Base);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* o = createNode("o", Node::Shape::Base);
+        Node* k = createNode("k", Node::Shape::Selected);
+        Node* j = createNode("j", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(e, g, amountOfParents);
+        addEdge(f, h, amountOfParents);
+        addEdge(f, i, amountOfParents);
+        addEdge(h, l, amountOfParents);
+        addEdge(h, o, amountOfParents);
+        addEdge(l, j, amountOfParents);
+        addEdge(i, k, amountOfParents);
+        addEdge(g, p, amountOfParents);
+        addEdge(g, u, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << o << u;
+        QTest::newRow("MissingNodesHaveHightNesting") << amountOfParents
+                                                      << a
+                                                      << TreeCoverageAnalyzer::PartiallyCovered
+                                                      << expectedMissingNodes;
+    }
+
+    // Тест 15: Разноуровневые проверки полупокрытия узла
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Selected);
+        Node* h = createNode("h", Node::Shape::Selected);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* j = createNode("j", Node::Shape::Base);
+        Node* k = createNode("k", Node::Shape::Selected);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* m = createNode("m", Node::Shape::Selected);
+        Node* n = createNode("n", Node::Shape::Selected);
+        Node* o = createNode("o", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(a, d, amountOfParents);
+        addEdge(b, f, amountOfParents);
+        addEdge(b, g, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(e, h, amountOfParents);
+        addEdge(e, i, amountOfParents);
+        addEdge(c, k, amountOfParents);
+        addEdge(c, j, amountOfParents);
+        addEdge(j, m, amountOfParents);
+        addEdge(j, l, amountOfParents);
+        addEdge(d, n, amountOfParents);
+        addEdge(d, o, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << i << l << o;
+        QTest::newRow("DiffrentLevelPartiallyCoverage") << amountOfParents
+                                                        << a
+                                                        << TreeCoverageAnalyzer::PartiallyCovered
+                                                        << expectedMissingNodes;
+    }
+
+    // Тест 16: Покрытие целевого узла зависит от листьев
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Selected);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Selected);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* j = createNode("j", Node::Shape::Selected);
+        Node* k = createNode("k", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(c, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(e, g, amountOfParents);
+        addEdge(g, h, amountOfParents);
+        addEdge(g, i, amountOfParents);
+        addEdge(i, j, amountOfParents);
+        addEdge(i, k, amountOfParents);
+        QTest::newRow("CoverageDependsOnLeaves") << amountOfParents
+                                                 << a
+                                                 << TreeCoverageAnalyzer::FullyCovered
+                                                 << QSet<Node*>();
+    }
+
+    // Тест 17: Множество неотмеченных которых не хватает для покрытия графа
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Base);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* j = createNode("j", Node::Shape::Base);
+        Node* k = createNode("k", Node::Shape::Selected);
+        addEdge(a, l, amountOfParents);
+        addEdge(l, b, amountOfParents);
+        addEdge(l, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(c, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(e, g, amountOfParents);
+        addEdge(g, h, amountOfParents);
+        addEdge(g, i, amountOfParents);
+        addEdge(i, k, amountOfParents);
+        addEdge(i, j, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << j << h << f << d << b;
+        QTest::newRow("MultiBaseTypeNodesAreMissing") << amountOfParents
+                                                      << a
+                                                      << TreeCoverageAnalyzer::PartiallyCovered
+                                                      << expectedMissingNodes;
+    }
+}
 
 void Tests::analyzeZoneWithRedundant_test(){ QFAIL("Not implemented"); }
 void Tests::analyzeZoneWithRedundant_test_data(){}
