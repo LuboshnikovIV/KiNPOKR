@@ -74,6 +74,21 @@ void Tests::parseDOT_test(){
                 QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Selected);
                 QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
             }
+            else if (expectedTreeMapSize == 4) {
+                QVERIFY(analyzer.treeMap.size() >= 4);
+                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
+                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
+            }
+            else if (expectedTreeMapSize == 5) {
+                QVERIFY(analyzer.treeMap.size() >= 5);
+                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
+                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[4] && analyzer.treeMap[4]->name == "e" && analyzer.treeMap[4]->shape == Node::Shape::Base);
+            }
         } catch (const Error& e) {
             QFAIL("Не ожидалось исключение для корректного случая");
         } catch (...) {
@@ -191,6 +206,45 @@ void Tests::parseDOT_test_data(){
                                             "Форма узла b не поддерживается программой. Измените ее на одну из представленных (square/diamond/oval/circle).\n"
                                             "На связи между узлом a и b задана метка. Уберите метку на связи./n");
 
+    // Тест 9: Граф с циклом
+    QTest::newRow("GraphWithCycle") << "digraph test {\n"
+                                    "a[shape=square];\n"
+                                    "b,c,d[shape=circle];\n"
+                                    "a->b;\n"
+                                    "b->c;\n"
+                                    "c->d;\n"
+                                    "d->b;\n"
+                                    "}"
+                                 << true
+                                 << 4
+                                 << Error::ErrorType(0)
+                                 << QString("");
+
+    // Тест 10: Несвязный граф
+    QTest::newRow("DisconnectedGraph") << "digraph test {\n"
+                                       "a[shape=square];\n"
+                                       "b,c,d[shape=circle];\n"
+                                       "a->b;\n"
+                                       "c->d;\n"
+                                       "}"
+                                    << true
+                                    << 4
+                                    << Error::ErrorType(0)
+                                    << QString("");
+
+    // Тест 11: Граф с летающим циклом
+    QTest::newRow("DisconnectedGraph") << "digraph test {\n"
+                                          "a[shape=square];\n"
+                                          "b,c,d,e[shape=circle];\n"
+                                          "a->b;\n"
+                                          "c->d;\n"
+                                          "d->e;\n"
+                                          "e->c;\n"
+                                          "}"
+                                       << true
+                                       << 5
+                                       << Error::ErrorType(0)
+                                       << QString("");
 }
 
 void Tests::isConnectedOrHasMultiParents_test(){
