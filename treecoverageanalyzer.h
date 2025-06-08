@@ -23,21 +23,21 @@ public:
     void parseDOT(const QString& content);
     void clearData();
     void fillHash(QList<Node*>& treeMap, QHash<Node*, int>& amountOfParents);
-    void isConnectedOrHasMultiParents(QHash<Node*, int>& amountOfParents);
-    void hasCycles(Node* node, QSet<QList<Node*>>& cycles, QHash<Node*, int>& amountOfParents, QList<Node*>& currentPath);
-    bool checkLevitateConected(QHash<Node*, int>& amountOfParents);
+    void treeGraphTakeErrors(QHash<Node*, int>& amountOfParents, bool* isConnected, QSet<Node*>& multiParents, QSet<Node*>& rootNodes);
+    void hasCycles(Node* node, QSet<QList<Node*>>& cycles, QSet<Node*>& visitedNodes, QList<Node*>& currentPath);
     void analyzeTreeCoverage();
     void analyzeZoneWithExtraNodes(Node* node);
     CoverageStatus analyzeZoneWithMissingNodes(Node* node);
     void analyzeZoneWithRedundantNodes(Node* node);
     QString getResult() const;
 
-    Node* root;
+    QSet<Node*> rootNodes;
     QSet<QList<Node*>> cycles;
     QSet<Node*> multiParents;
     QHash<Node*, int> amountOfParents;
     bool isConnected;
     QList<Node*> treeMap;
+    QSet<Node*> visitedNodes;
     QSet<Node*> missingNodes;
     QSet<Node*> extraNodes;
     QSet<QPair<Node*, Node*>> redundantNodes;

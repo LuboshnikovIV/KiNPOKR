@@ -29,9 +29,9 @@ private slots:
     void parseDOT_test();
     void parseDOT_test_data();
 
-    // data driven тесты для функции isConnectedOrHasMultiParents
-    void isConnectedOrHasMultiParents_test();
-    void isConnectedOrHasMultiParents_test_data();
+    // data driven тесты для функции treeGraphTakeErrors
+    void treeGraphTakeErrors_test();
+    void treeGraphTakeErrors_test_data();
 
     // data driven тесты для функции hasCycles
     void hasCycles_test();

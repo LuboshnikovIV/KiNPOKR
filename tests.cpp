@@ -247,25 +247,16 @@ void Tests::parseDOT_test_data(){
                                        << QString("");
 }
 
-void Tests::isConnectedOrHasMultiParents_test(){
+void Tests::treeGraphTakeErrors_test(){
     QFETCH(NODE_PARENT_HASH, amountOfParents);
-    QFETCH(Node*, rootNode);
+    QFETCH(QSet<Node*>, rootNodes);
     QFETCH(bool, expectedIsConnected);
     QFETCH(QSet<Node*>, expectedMultiParents);
 
     TreeCoverageAnalyzer analyzer;
-    analyzer.root = rootNode;
-
-    // Добавляем узлы из amountOfParents в treeMap
-    for (auto it = amountOfParents.constBegin(); it != amountOfParents.constEnd(); ++it) {
-        analyzer.treeMap.append(it.key());
-    }
-    if (rootNode && !analyzer.treeMap.contains(rootNode)) {
-        analyzer.treeMap.append(rootNode);
-    }
 
     // Вызов метода
-    analyzer.isConnectedOrHasMultiParents(amountOfParents);
+    analyzer.treeGraphTakeErrors(amountOfParents, &analyzer.isConnected, analyzer.multiParents, analyzer.rootNodes);
 
     // Проверка результатов
     QCOMPARE(analyzer.isConnected, expectedIsConnected);
@@ -274,9 +265,9 @@ void Tests::isConnectedOrHasMultiParents_test(){
     // Очистка через clearData
     analyzer.clearData();
 }
-void Tests::isConnectedOrHasMultiParents_test_data(){
+void Tests::treeGraphTakeErrors_test_data(){
     QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
-    QTest::addColumn<Node*>("rootNode");
+    QTest::addColumn<QSet<Node*>>("rootNodes");
     QTest::addColumn<bool>("expectedIsConnected");
     QTest::addColumn<QSet<Node*>>("expectedMultiParents");
 
@@ -284,8 +275,10 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
     {
         NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QTest::newRow("GraphConsistOfOneNode") << amountOfParents
-                                               << a
+                                               << rootNodes
                                                << true
                                                << QSet<Node*>();
     }
@@ -301,10 +294,12 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(a, c, amountOfParents);
         addEdge(b, d, amountOfParents);
         addEdge(c, d, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d;
         QTest::newRow("NodeWithTwoParents") << amountOfParents
-                                            << a
+                                            << rootNodes
                                             << true
                                             << expectedMultiParents;
     }
@@ -318,8 +313,10 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         Node* g = createNode("g", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(c, g, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a << c;
         QTest::newRow("DisconnectedGraph") << amountOfParents
-                                           << a
+                                           << rootNodes
                                            << false
                                            << QSet<Node*>();
     }
@@ -338,10 +335,12 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(b, d, amountOfParents);
         addEdge(d, k, amountOfParents);
         addEdge(c, k, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d << k;
         QTest::newRow("MultiNodesHaveMultiParents") << amountOfParents
-                                                    << a
+                                                    << rootNodes
                                                     << true
                                                     << expectedMultiParents;
     }
@@ -355,8 +354,10 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QTest::newRow("GraphWithCycle") << amountOfParents
-                                        << a
+                                        << rootNodes
                                         << true
                                         << QSet<Node*>();
     }
@@ -368,8 +369,10 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QTest::newRow("GraphWithNodeWithoutParents") << amountOfParents
-                                                     << a
+                                                     << rootNodes
                                                      << false
                                                      << QSet<Node*>();
     }
@@ -384,10 +387,12 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(a, c, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, b, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << b << c;
         QTest::newRow("NonrootNodesHaveTwoParents") << amountOfParents
-                                                    << a
+                                                    << rootNodes
                                                     << true
                                                     << expectedMultiParents;
     }
@@ -397,8 +402,10 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
         addEdge(a, a, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QTest::newRow("OneNodeWithCycle") << amountOfParents
-                                          << a
+                                          << rootNodes
                                           << true
                                           << QSet<Node*>();
     }
@@ -415,9 +422,11 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(c, d, amountOfParents);
         addEdge(d, e, amountOfParents);
         addEdge(e, c, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QTest::newRow("GraphWithLevitateCycle") << amountOfParents
-                                                << a
-                                                << false // Исправлено: узлы c, d, e недостижимы
+                                                << rootNodes
+                                                << false
                                                 << QSet<Node*>();
     }
 
@@ -433,10 +442,12 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(a, d, amountOfParents);
         addEdge(b, d, amountOfParents);
         addEdge(c, d, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d;
         QTest::newRow("ThreeParentsForNode") << amountOfParents
-                                             << a
+                                             << rootNodes
                                              << true
                                              << expectedMultiParents;
     }
@@ -463,111 +474,164 @@ void Tests::isConnectedOrHasMultiParents_test_data(){
         addEdge(d, g, amountOfParents);
         addEdge(c, g, amountOfParents);
         addEdge(g, r, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << c << g << r << l;
         QTest::newRow("GraphWithHightNestingAndMultiParents") << amountOfParents
-                                                              << a
+                                                              << rootNodes
                                                               << true
                                                               << expectedMultiParents;
+    }
+
+    // Тест 12: Связный граф с двумя корнями
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(c, b, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a << c;
+        QSet<Node*> expectedMultiParents;
+        expectedMultiParents << b;
+        QTest::newRow("ConnectedGraphWithTwoRoots") << amountOfParents
+                                                              << rootNodes
+                                                              << true
+                                                              << expectedMultiParents;
+    }
+
+    // Тест 13: Граф с множеством корней и летающий цикл
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(c, b, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, g, amountOfParents);
+        addEdge(g, e, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a << c;
+        QSet<Node*> expectedMultiParents;
+        expectedMultiParents << b;
+        QTest::newRow("GraphWithMultiRootsAndLevitatingCycle") << amountOfParents
+                                                    << rootNodes
+                                                    << false
+                                                    << expectedMultiParents;
     }
 }
 
 void Tests::hasCycles_test(){
-    QFETCH(QList<Node*>, nodes);
     QFETCH(NODE_PARENT_HASH, amountOfParents);
-    QFETCH(Node*, startNode);
-    QFETCH(int, expectedCycleCount);
+    QFETCH(QSet<Node*>, rootNodes);
     QFETCH(QSet<QList<Node*>>, expectedCycles);
 
     TreeCoverageAnalyzer analyzer;
-    QSet<QList<Node*>> cycles;
     QList<Node*> currentPath;
 
-    // Вызов метода
-    analyzer.hasCycles(startNode, cycles, amountOfParents, currentPath);
+    for(Node* startNode: rootNodes){
+        if (!startNode) {
+            qDebug() << "Warning: Null startNode detected!";
+            continue;
+        }
+        qDebug() << "Processing root:" << startNode->name;
+        // Вызов метода
+        analyzer.hasCycles(startNode, analyzer.cycles, analyzer.visitedNodes, currentPath);
+    }
 
     // Проверка результатов
-    QCOMPARE(cycles.size(), expectedCycleCount);
-    if (expectedCycleCount > 0) {
-        QVERIFY(cycles == expectedCycles);
-    }
+    QCOMPARE(analyzer.cycles, expectedCycles);
 
     // Отчистка данных
     analyzer.clearData();
 }
 void Tests::hasCycles_test_data(){
-    QTest::addColumn<QList<Node*>>("nodes");
-    QTest::addColumn<QHash<Node*, int>>("amountOfParents");
-    QTest::addColumn<Node*>("startNode");
-    QTest::addColumn<int>("expectedCycleCount");
+    QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
+    QTest::addColumn<QSet<Node*>>("rootNodes");
     QTest::addColumn<QSet<QList<Node*>>>("expectedCycles");
 
     // Тест 1: Граф без цикла
     {
-        QList<Node*> nodes;
-        QHash<Node*, int> amountOfParents;
+        NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        nodes << a << b << c;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(a, c, amountOfParents);
-        QTest::newRow("GraphWithoutCycle") << nodes << amountOfParents << a << 0 << QSet<QList<Node*>>();
+        QSet<Node*> rootNodes;
+        rootNodes << a;
+        QTest::newRow("GraphWithoutCycle") << amountOfParents
+                                           << rootNodes
+                                           << QSet<QList<Node*>>();
     }
 
     // Тест 2: Граф с циклом
     {
-        QList<Node*> nodes;
-        QHash<Node*, int> amountOfParents;
+        NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        nodes << a << b << c;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
-        QTest::newRow("GraphWithCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithCycle") << amountOfParents
+                                        << rootNodes
+                                        << expectedCycles;
     }
 
     // Тест 3: Граф с левитирующим циклом
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        nodes << a << b << c;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
         addEdge(b, c, amountOfParents);
         addEdge(c, b, amountOfParents);
-        QTest::newRow("GraphWithLevitatingCycle") << nodes << amountOfParents << a << 0 << QSet<QList<Node*>>();
+        QSet<Node*> rootNodes;
+        rootNodes << a << c;
+        QTest::newRow("GraphWithLevitatingCycle") << amountOfParents
+                                                  << rootNodes
+                                                  << QSet<QList<Node*>>();
     }
 
     // Тест 4: Граф с циклом на себя
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        nodes << a;
         addEdge(a, a, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a};
-        QTest::newRow("GraphWithSelfCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithSelfCycle") << amountOfParents
+                                            << rootNodes
+                                            << expectedCycles;
     }
 
     // Тест 5: Граф с несколькими циклами
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        Node* d = createNode("d");
-        Node* e = createNode("e");
-        Node* f = createNode("f");
-        Node* g = createNode("g");
-        nodes << a << b << c << d << e << f << g;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, d, amountOfParents);
         addEdge(d, e, amountOfParents);
@@ -577,79 +641,87 @@ void Tests::hasCycles_test_data(){
         addEdge(f, g, amountOfParents);
         addEdge(g, c, amountOfParents);
         addEdge(e, g, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, d, e} << QList<Node*>{c, f, g} << QList<Node*>{e, g};
-        QTest::newRow("GraphWithMultipleCycles") << nodes << amountOfParents << a << 3 << expectedCycles;
+        QTest::newRow("GraphWithMultipleCycles") << amountOfParents
+                                                 << rootNodes
+                                                 << expectedCycles;
     }
 
     // Тест 6: Граф с простым циклом
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        Node* d = createNode("d");
-        nodes << a << b << c << d;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, d, amountOfParents);
         addEdge(d, b, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a << c;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c, d};
-        QTest::newRow("GraphWithSimpleCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithSimpleCycle") << amountOfParents
+                                              << rootNodes
+                                              << expectedCycles;
     }
 
     // Тест 7: Граф с циклом и ответвлением
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        Node* d = createNode("d");
-        nodes << a << b << c << d;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
         addEdge(b, d, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
-        QTest::newRow("GraphWithCycleAndBranch") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithCycleAndBranch") << amountOfParents
+                                                 << rootNodes
+                                                 << expectedCycles;
     }
 
     // Тест 8: Граф с большим циклом
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        Node* e = createNode("e");
-        Node* f = createNode("f");
-        Node* g = createNode("g");
-        nodes << a << b << c << e << f << g;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, e, amountOfParents);
         addEdge(e, f, amountOfParents);
         addEdge(f, g, amountOfParents);
         addEdge(g, b, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c, e, f, g};
-        QTest::newRow("GraphWithLargeCycle") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("GraphWithLargeCycle") << amountOfParents
+                                             << rootNodes
+                                             << expectedCycles;
     }
 
     // Тест 9: Узел с тремя циклами
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        Node* d = createNode("d");
-        Node* e = createNode("e");
-        nodes << a << b << c << d << e;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, b, amountOfParents);
@@ -657,26 +729,61 @@ void Tests::hasCycles_test_data(){
         addEdge(d, b, amountOfParents);
         addEdge(b, e, amountOfParents);
         addEdge(e, b, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c} << QList<Node*>{b, d} << QList<Node*>{b, e};
-        QTest::newRow("NodeWithThreeCycles") << nodes << amountOfParents << a << 3 << expectedCycles;
+        QTest::newRow("NodeWithThreeCycles") << amountOfParents
+                                             << rootNodes
+                                             << expectedCycles;
     }
 
     // Тест 10: Два циклических графа
     {
-        QList<Node*> nodes;
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        Node* b = createNode("b");
-        Node* c = createNode("c");
-        nodes << a << b << c;
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
-        QTest::newRow("TwoCyclicGraphs") << nodes << amountOfParents << a << 1 << expectedCycles;
+        QTest::newRow("TwoCyclicGraphs") << amountOfParents
+                                         << rootNodes
+                                         << expectedCycles;
     }
+
+    // Тест 11: Два графа с циклами
+    {
+        QHash<Node*, int> amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, b, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, g, amountOfParents);
+        addEdge(g, h, amountOfParents);
+        addEdge(h, f, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a << e;
+        QSet<QList<Node*>> expectedCycles;
+        expectedCycles << QList<Node*>{b, c, d} << QList<Node*>{f, g, h};
+        QTest::newRow("TwoGraphsWithCycle") << amountOfParents
+                                         << rootNodes
+                                         << expectedCycles;
+    }
+
 }
 
 void Tests::analyzeZoneWithExtraNodes_test(){
