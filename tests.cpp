@@ -233,7 +233,7 @@ void Tests::parseDOT_test_data(){
                                     << QString("");
 
     // Тест 11: Граф с летающим циклом
-    QTest::newRow("DisconnectedGraph") << "digraph test {\n"
+    QTest::newRow("GraphWithLevitateCycle") << "digraph test {\n"
                                           "a[shape=square];\n"
                                           "b,c,d,e[shape=circle];\n"
                                           "a->b;\n"
@@ -529,6 +529,29 @@ void Tests::treeGraphTakeErrors_test_data(){
                                                     << false
                                                     << expectedMultiParents;
     }
+
+    // Тест 14: Два летающих цикла
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(c, a, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, d, amountOfParents);
+        QSet<Node*> rootNodes;
+        rootNodes << a;
+        QTest::newRow("TwoLevitateCycles") << amountOfParents
+                                                               << rootNodes
+                                                               << false
+                                                               << QSet<Node*>();
+    }
 }
 
 void Tests::hasCycles_test(){
@@ -575,7 +598,7 @@ void Tests::hasCycles_test_data(){
                                            << QSet<QList<Node*>>();
     }
 
-    // Тест 2: Граф с циклом
+    // Тест 2: Граф состоящий из цикла
     {
         NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
@@ -650,7 +673,7 @@ void Tests::hasCycles_test_data(){
                                                  << expectedCycles;
     }
 
-    // Тест 6: Граф с простым циклом
+    // Тест 6: Граф с циклом
     {
         QHash<Node*, int> amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
@@ -957,8 +980,86 @@ void Tests::analyzeZoneWithExtraNodes_test_data(){
         addEdge(a, b, amountOfParents);
         QSet<Node*> expectedExtraNodes;
         expectedExtraNodes << c;
-        QTest::newRow("MultiExtraNodesInDifferentBranches") << amountOfParents
+        QTest::newRow("AllNodesAreSelectedType") << amountOfParents
                                                             << c
+                                                            << expectedExtraNodes;
+    }
+
+    // Тест 9: Сложный шраф с высокой вложенностью
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Base);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Target);
+        Node* h = createNode("h", Node::Shape::Base);
+        Node* i = createNode("i", Node::Shape::Base);
+        Node* j = createNode("j", Node::Shape::Base);
+        Node* k = createNode("k", Node::Shape::Base);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* m = createNode("m", Node::Shape::Base);
+        Node* n = createNode("n", Node::Shape::Base);
+        Node* o = createNode("o", Node::Shape::Base);
+        Node* p = createNode("p", Node::Shape::Base);
+        Node* r = createNode("r", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(a, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, g, amountOfParents);
+        addEdge(c, h, amountOfParents);
+        addEdge(c, i, amountOfParents);
+        addEdge(h, j, amountOfParents);
+        addEdge(i, k, amountOfParents);
+        addEdge(i, l, amountOfParents);
+        addEdge(d, m, amountOfParents);
+        addEdge(m, n, amountOfParents);
+        addEdge(m, p, amountOfParents);
+        addEdge(m, o, amountOfParents);
+        addEdge(p, r, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << e << j << k << l << n << p;
+        QTest::newRow("DifficultGraphWithHightNesting") << amountOfParents
+                                                            << a
+                                                            << expectedExtraNodes;
+    }
+
+    // Тест 10: В графе есть все типы зон
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Base);
+        Node* b = createNode("b", Node::Shape::Target);
+        Node* c = createNode("c", Node::Shape::Selected);
+        Node* d = createNode("d", Node::Shape::Selected);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        Node* g = createNode("g", Node::Shape::Base);
+        Node* h = createNode("h", Node::Shape::Selected);
+        Node* i = createNode("i", Node::Shape::Selected);
+        Node* j = createNode("j", Node::Shape::Selected);
+        Node* k = createNode("k", Node::Shape::Selected);
+        Node* l = createNode("l", Node::Shape::Base);
+        Node* m = createNode("m", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        addEdge(b, e, amountOfParents);
+        addEdge(b, f, amountOfParents);
+        addEdge(d, h, amountOfParents);
+        addEdge(e, i, amountOfParents);
+        addEdge(f, j, amountOfParents);
+        addEdge(i, l, amountOfParents);
+        addEdge(i, m, amountOfParents);
+        addEdge(c, g, amountOfParents);
+        addEdge(g, k, amountOfParents);
+        QSet<Node*> expectedExtraNodes;
+        expectedExtraNodes << c;
+        QTest::newRow("GraphHasAllTypesOfZones") << amountOfParents
+                                                            << a
                                                             << expectedExtraNodes;
     }
 }
@@ -1425,6 +1526,54 @@ void Tests::analyzeZoneWithMissingNodes_test_data(){
                                                       << TreeCoverageAnalyzer::PartiallyCovered
                                                       << expectedMissingNodes;
     }
+
+    // Тест 18: Вызов функции производится не для целевого узла, узел без покрытия
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << b;
+        QTest::newRow("NotTargetNodeIsNotCovered") << amountOfParents
+                                                      << b
+                                                      << TreeCoverageAnalyzer::NotCovered
+                                                      << expectedMissingNodes;
+    }
+
+    // Тест 19: Вызов функции производится не для целевого узла, узел имеет полу-покрытие
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(b, d, amountOfParents);
+        QSet<Node*> expectedMissingNodes;
+        expectedMissingNodes << c;
+        QTest::newRow("NotTargetNodeIsPartiallyCovered") << amountOfParents
+                                                   << b
+                                                   << TreeCoverageAnalyzer::PartiallyCovered
+                                                   << expectedMissingNodes;
+    }
+
+    // Тест 20: Вызов функции производится не для целевого узла, узел имеет полу-покрытие
+    {
+        NODE_PARENT_HASH amountOfParents;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        addEdge(a, b, amountOfParents);
+        QTest::newRow("NotTargetNodeIsFullyCovered") << amountOfParents
+                                                         << b
+                                                         << TreeCoverageAnalyzer::FullyCovered
+                                                         << QSet<Node*>();
+    }
 }
 
 void Tests::analyzeZoneWithRedundant_test(){
@@ -1440,7 +1589,7 @@ void Tests::analyzeZoneWithRedundant_test(){
     }
 
     // Вызов метода
-    analyzer.analyzeZoneWithExtraNodes(node);
+    analyzer.analyzeZoneWithRedundantNodes(node);
 
     // Проверка результатов
     QCOMPARE(analyzer.redundantNodes, expectedRedundantNodes);
@@ -1473,7 +1622,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
         expectedRedundantNodes << qMakePair(b, c);
         QTest::newRow("OneRedundantNode") << amountOfParents
-                                          << a
+                                          << c
                                           << expectedRedundantNodes;
     }
 
@@ -1488,9 +1637,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(b, c, amountOfParents);
         addEdge(c, d, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(b, c) << qMakePair(c, d);
+        expectedRedundantNodes << qMakePair(b, c) << qMakePair(b, d);
         QTest::newRow("MultiRedundantNodes") << amountOfParents
-                                             << a
+                                             << c
                                              << expectedRedundantNodes;
     }
 
@@ -1507,9 +1656,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(b, d, amountOfParents);
         addEdge(c, e, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(b, d) << qMakePair(c, e);
+        expectedRedundantNodes << qMakePair(c, e);
         QTest::newRow("RedundantNodesInDiffrentBranches") << amountOfParents
-                                                          << a
+                                                          << e
                                                           << expectedRedundantNodes;
     }
 
@@ -1524,7 +1673,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(b, c, amountOfParents);
         addEdge(c, d, amountOfParents);
         QTest::newRow("ZoneWithRedundantIsThereButNotRedundantNodes") << amountOfParents
-                                                                      << a
+                                                                      << c
                                                                       << QSet<QPair<Node*, Node*>>();
     }
 
@@ -1543,9 +1692,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(d, e, amountOfParents);
         addEdge(e, f, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(d, f);
+        expectedRedundantNodes << qMakePair(b, f);
         QTest::newRow("RedundantNodesHasHightNesting") << amountOfParents
-                                                       << a
+                                                       << c
                                                        << expectedRedundantNodes;
     }
 
@@ -1563,11 +1712,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(b, c, amountOfParents);
         addEdge(c, d, amountOfParents);
         addEdge(e, f, amountOfParents);
-        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(b, d);
         QTest::newRow("NotInAllBranchesHaveRedundantNode") << amountOfParents
-                                                           << a
-                                                           << expectedRedundantNodes;
+                                                           << f
+                                                           << QSet<QPair<Node*, Node*>>();
     }
 
     // Тест 8: Избыточный узел до целевого
@@ -1583,7 +1730,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
         expectedRedundantNodes << qMakePair(e, r);
         QTest::newRow("RedundantNodeBeforeTargetNode") << amountOfParents
-                                                       << a
+                                                       << r
                                                        << expectedRedundantNodes;
     }
 
@@ -1599,11 +1746,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(e, d, amountOfParents);
         addEdge(d, a, amountOfParents);
         addEdge(a, b, amountOfParents);
-        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(e, r);
         QTest::newRow("RedundantNodeNotLocateInBranchWithTarget") << amountOfParents
-                                                                  << a
-                                                                  << expectedRedundantNodes;
+                                                                  << d
+                                                                  << QSet<QPair<Node*, Node*>>();
     }
 
     // Тест 10: Комбинированное расположение избыточных узлов
@@ -1621,9 +1766,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(a, b, amountOfParents);
         addEdge(b, g, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(e, r) << qMakePair(e, d) << qMakePair(b, g);
+        expectedRedundantNodes << qMakePair(b, g);
         QTest::newRow("MixedLocateRedundantNodes") << amountOfParents
-                                                   << a
+                                                   << g
                                                    << expectedRedundantNodes;
     }
 
@@ -1656,9 +1801,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(e, f, amountOfParents);
         addEdge(e, h, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(j, l) << qMakePair(c, e) << qMakePair(c, f) << qMakePair(c, h);
+        expectedRedundantNodes << qMakePair(c, e) << qMakePair(c, f) << qMakePair(c, h);
         QTest::newRow("DifficultGraphWithHightNesting") << amountOfParents
-                                                        << a
+                                                        << d
                                                         << expectedRedundantNodes;
     }
 
@@ -1701,9 +1846,9 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(m, p, amountOfParents);
         addEdge(p, r, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f) << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h) << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k) << qMakePair(a, l) << qMakePair(a, d) << qMakePair(a, m) << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p) << qMakePair(a, r);
+        expectedRedundantNodes << qMakePair(a, d) << qMakePair(a, m) << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p) << qMakePair(a, r);
         QTest::newRow("AllNodesSelectedExceptTarget") << amountOfParents
-                                                      << z
+                                                      << d
                                                       << expectedRedundantNodes;
     }
 }
