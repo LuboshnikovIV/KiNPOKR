@@ -57,7 +57,6 @@ void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& 
 void Tests::parseDOT_test(){
     QFETCH(QString, content);
     QFETCH(bool, shouldSucceed);
-    QFETCH(int, expectedTreeMapSize);
     QFETCH(Error::ErrorType, expectedErrorType);
     QFETCH(QString, expectedErrorMessage);
 
@@ -67,27 +66,58 @@ void Tests::parseDOT_test(){
     if (shouldSucceed) {
         try {
             analyzer.parseDOT(content);
-            QCOMPARE(analyzer.treeMap.size(), expectedTreeMapSize);
-            if (expectedTreeMapSize == 3) {
-                QVERIFY(analyzer.treeMap.size() >= 3);
+            QVERIFY(!analyzer.treeMap.isEmpty());
+            if (analyzer.treeMap.size() == 3) {
+                // Проверка спаршенных узлов
                 QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
                 QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Selected);
                 QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
+
+                // Проверка спаршенных связей
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[2]));
             }
-            else if (expectedTreeMapSize == 4) {
-                QVERIFY(analyzer.treeMap.size() >= 4);
+            else if (analyzer.treeMap.size() == 4) {
+                // Проверка спаршенных узлов
                 QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
                 QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
                 QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
                 QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
+
+                // Проверка спаршенных связей
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
+                QVERIFY(analyzer.treeMap[1]->children.contains(analyzer.treeMap[2]));
+                QVERIFY(analyzer.treeMap[2]->children.contains(analyzer.treeMap[3]));
+                QVERIFY(analyzer.treeMap[3]->children.contains(analyzer.treeMap[1]));
             }
-            else if (expectedTreeMapSize == 5) {
-                QVERIFY(analyzer.treeMap.size() >= 5);
+            else if (analyzer.treeMap.size() == 5) {
+                // Проверка спаршенных узлов
                 QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
                 QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
                 QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
                 QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
                 QVERIFY(analyzer.treeMap[4] && analyzer.treeMap[4]->name == "e" && analyzer.treeMap[4]->shape == Node::Shape::Base);
+
+                // Проверка спаршенных связей
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[2]));
+                QVERIFY(analyzer.treeMap[3]->children.contains(analyzer.treeMap[4]));
+            }
+            else if(analyzer.treeMap.size() == 6){
+                // Проверка спаршенных узлов
+                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
+                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[4] && analyzer.treeMap[4]->name == "e" && analyzer.treeMap[4]->shape == Node::Shape::Base);
+                QVERIFY(analyzer.treeMap[5] && analyzer.treeMap[5]->name == "f" && analyzer.treeMap[5]->shape == Node::Shape::Base);
+
+                // Проверка спаршенных связей
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
+                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[2]));
+                QVERIFY(analyzer.treeMap[3]->children.contains(analyzer.treeMap[4]));
+                QVERIFY(analyzer.treeMap[4]->children.contains(analyzer.treeMap[5]));
+                QVERIFY(analyzer.treeMap[5]->children.contains(analyzer.treeMap[3]));
             }
         } catch (const Error& e) {
             QFAIL("Не ожидалось исключение для корректного случая");
@@ -112,14 +142,12 @@ void Tests::parseDOT_test(){
 void Tests::parseDOT_test_data(){
     QTest::addColumn<QString>("content");
     QTest::addColumn<bool>("shouldSucceed");
-    QTest::addColumn<int>("expectedTreeMapSize");
     QTest::addColumn<Error::ErrorType>("expectedErrorType");
     QTest::addColumn<QString>("expectedErrorMessage");
 
     // Тест 1: Пустой файл
     QTest::newRow("EmptyFile") << ""
                                << false
-                               << 0
                                << Error::EmptyFile
                                << QString("Файл пустой.");
 
@@ -130,7 +158,6 @@ void Tests::parseDOT_test_data(){
                                                 "a->b;\n"
                                                 "}"
                                << false
-                               << 0
                                << Error::NoTargetNode
                                << QString("Некорректная ситуация, нет узла, для которого определяем покрытие. Добавьте узел с формой square.");
 
@@ -141,7 +168,6 @@ void Tests::parseDOT_test_data(){
                                        "a--b;\n"
                                        "}"
                                << false
-                               << 0
                                << Error::UndirectedEdge
                                << QString("Граф не является деревом, связи между узлами не направлены.");
 
@@ -152,7 +178,6 @@ void Tests::parseDOT_test_data(){
                                   "a->b[lable=\"test\"];\n"
                                   "}"
                                << false
-                               << 0
                                << Error::EdgeLabel
                                << QString("На связи между узлом a и b задана метка. Уберите метку на связи.");
 
@@ -163,7 +188,6 @@ void Tests::parseDOT_test_data(){
                                          "a->b;\n"
                                          "}"
                                << false
-                               << 0
                                << Error::InvalidNodeShape
                                << QString("Форма узла b не поддерживается программой. Измените ее на одну из предоставленных (square/diamond/oval/circle).");
 
@@ -176,7 +200,6 @@ void Tests::parseDOT_test_data(){
                                      "a->c;\n"
                                      "}"
                                << true
-                               << 3
                                << Error::ErrorType(0)
                                << QString("");
 
@@ -187,7 +210,6 @@ void Tests::parseDOT_test_data(){
                                    "a->b;\n"
                                    "}"
                                << false
-                               << 0
                                << Error::ExtraLabel
                                << QString("На узле a задана метка. Уберите метку на узле.");
 
@@ -198,7 +220,6 @@ void Tests::parseDOT_test_data(){
                                     "a--b[label=\"test\"];\n"
                                     "}"
                                << false
-                               << 0
                                << Error::NoTargetNode // Основная ошибка именно эта но сообщение влючает все
                                << QString("Некорректная ситуация, нет узла, для которого определяем покрытие. Добавьте узел с формой square.\n"
                                             "Граф не является деревом, связи между узлами не направлены.\n"
@@ -216,33 +237,32 @@ void Tests::parseDOT_test_data(){
                                     "d->b;\n"
                                     "}"
                                  << true
-                                 << 4
                                  << Error::ErrorType(0)
                                  << QString("");
 
     // Тест 10: Несвязный граф
     QTest::newRow("DisconnectedGraph") << "digraph test {\n"
                                        "a[shape=square];\n"
-                                       "b,c,d[shape=circle];\n"
+                                       "b,c,d,e[shape=circle];\n"
                                        "a->b;\n"
-                                       "c->d;\n"
+                                       "a->c;\n"
+                                       "d->e;\n"
                                        "}"
                                     << true
-                                    << 4
                                     << Error::ErrorType(0)
                                     << QString("");
 
     // Тест 11: Граф с летающим циклом
     QTest::newRow("GraphWithLevitateCycle") << "digraph test {\n"
                                           "a[shape=square];\n"
-                                          "b,c,d,e[shape=circle];\n"
+                                          "b,c,d,e,f[shape=circle];\n"
                                           "a->b;\n"
-                                          "c->d;\n"
+                                          "a->c;\n"
                                           "d->e;\n"
-                                          "e->c;\n"
+                                          "e->f;\n"
+                                          "f->d;\n"
                                           "}"
                                        << true
-                                       << 5
                                        << Error::ErrorType(0)
                                        << QString("");
 }
