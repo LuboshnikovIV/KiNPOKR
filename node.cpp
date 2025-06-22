@@ -1,4 +1,9 @@
 #include "node.h"
 
-Node::Node([[maybe_unused]] const QString& nodeName, [[maybe_unused]] Shape nodeShape) {}
-Node::~Node() = default;
+Node::Node(const QString& nodeName, Shape nodeShape)
+    : name(nodeName), shape(nodeShape), visited(false) {}
+
+
+Node::~Node()
+{
+}

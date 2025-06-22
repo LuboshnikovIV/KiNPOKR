@@ -57,8 +57,7 @@ void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& 
 void Tests::parseDOT_test(){
     QFETCH(QString, content);
     QFETCH(bool, shouldSucceed);
-    QFETCH(Error::ErrorType, expectedErrorType);
-    QFETCH(QString, expectedErrorMessage);
+    QFETCH(QList<Error>, expectedErrors);
 
     TreeCoverageAnalyzer analyzer;
 
@@ -66,6 +65,7 @@ void Tests::parseDOT_test(){
     if (shouldSucceed) {
         try {
             analyzer.parseDOT(content);
+            //qDebug() << "treeMap size:" << analyzer.treeMap.size();
             QVERIFY(!analyzer.treeMap.isEmpty());
             if (analyzer.treeMap.size() == 3) {
                 // Проверка спаршенных узлов
@@ -127,10 +127,12 @@ void Tests::parseDOT_test(){
     } else {
         try {
             analyzer.parseDOT(content);
-            QFAIL("Ожидалось исключение для некорректного случая");
+            QCOMPARE(analyzer.errors, expectedErrors);
+            if (analyzer.errors.isEmpty()) {
+                QFAIL("Ожидались ошибки для некорректного случая");
+            }
         } catch (const Error& e) {
-            QCOMPARE(e.type, expectedErrorType);
-            QCOMPARE(e.errMessage(), expectedErrorMessage);
+            QCOMPARE(analyzer.errors, expectedErrors); // Проверяем, что ошибки совпадают
         } catch (...) {
             QFAIL("Неизвестное исключение в некорректном случае");
         }
@@ -142,14 +144,12 @@ void Tests::parseDOT_test(){
 void Tests::parseDOT_test_data(){
     QTest::addColumn<QString>("content");
     QTest::addColumn<bool>("shouldSucceed");
-    QTest::addColumn<Error::ErrorType>("expectedErrorType");
-    QTest::addColumn<QString>("expectedErrorMessage");
+    QTest::addColumn<QList<Error>>("expectedErrors");
 
     // Тест 1: Пустой файл
     QTest::newRow("EmptyFile") << ""
                                << false
-                               << Error::EmptyFile
-                               << QString("Файл пустой.");
+                               << (QList<Error>{Error(Error::EmptyFile)});
 
     // Тест 2: Отсутствует целевой узел
     QTest::newRow("NoTargetNode") << "digraph test {\n"
@@ -158,8 +158,7 @@ void Tests::parseDOT_test_data(){
                                                 "a->b;\n"
                                                 "}"
                                << false
-                               << Error::NoTargetNode
-                               << QString("Некорректная ситуация, нет узла, для которого определяем покрытие. Добавьте узел с формой square.");
+                               << (QList<Error>{Error(Error::NoTargetNode)});
 
     // Тест 3: Ненаправленная связь
     QTest::newRow("UndirectedEdge") << "graph test {\n"
@@ -168,18 +167,16 @@ void Tests::parseDOT_test_data(){
                                        "a--b;\n"
                                        "}"
                                << false
-                               << Error::UndirectedEdge
-                               << QString("Граф не является деревом, связи между узлами не направлены.");
+                               << (QList<Error>{Error(Error::UndirectedEdge)});
 
     // Тест 4: Метка на связи
     QTest::newRow("EdgeLabel") << "digraph test {\n"
                                   "a[shape=square];\n"
                                   "b[shape=diamond];\n"
-                                  "a->b[lable=\"test\"];\n"
+                                  "a->b[label=\"test\"];\n"
                                   "}"
                                << false
-                               << Error::EdgeLabel
-                               << QString("На связи между узлом a и b задана метка. Уберите метку на связи.");
+                               << (QList<Error>{Error(Error::ExtraLabel, "b label=\"test\""), Error(Error::EdgeLabel)});
 
     // Тест 5: Неверная форма узла
     QTest::newRow("InvalidNodeShape") << "digraph test {\n"
@@ -188,8 +185,7 @@ void Tests::parseDOT_test_data(){
                                          "a->b;\n"
                                          "}"
                                << false
-                               << Error::InvalidNodeShape
-                               << QString("Форма узла b не поддерживается программой. Измените ее на одну из предоставленных (square/diamond/oval/circle).");
+                                      << (QList<Error>{Error(Error::InvalidNodeShape, "b")});
 
     // Тест 6: Корректный граф
     QTest::newRow("CorrectGraph") << "digraph test {\n"
@@ -200,18 +196,16 @@ void Tests::parseDOT_test_data(){
                                      "a->c;\n"
                                      "}"
                                << true
-                               << Error::ErrorType(0)
-                               << QString("");
+                                  << (QList<Error>{});
 
     // Тест 7: Дополнительная метка узла
     QTest::newRow("ExtraLabel") << "digraph test {\n"
-                                   "a[shape=square,lable=\"test\"];\n"
+                                   "a[shape=square,label=\"test\"];\n"
                                    "b[shape=diamond];\n"
                                    "a->b;\n"
                                    "}"
                                << false
-                               << Error::ExtraLabel
-                               << QString("На узле a задана метка. Уберите метку на узле.");
+                                << (QList<Error>{Error(Error::ExtraLabel, "a lable=\"test\"")});
 
     // Тест 8: Комплексный
     QTest::newRow("ComplexCase") << "graph test {\n"
@@ -220,12 +214,12 @@ void Tests::parseDOT_test_data(){
                                     "a--b[label=\"test\"];\n"
                                     "}"
                                << false
-                               << Error::NoTargetNode // Основная ошибка именно эта но сообщение влючает все
-                               << QString("Некорректная ситуация, нет узла, для которого определяем покрытие. Добавьте узел с формой square.\n"
-                                            "Граф не является деревом, связи между узлами не направлены.\n"
-                                            "На связи между узлом a и b задана метка. Уберите метку на связи.\n"
-                                            "Форма узла b не поддерживается программой. Измените ее на одну из представленных (square/diamond/oval/circle).\n"
-                                            "На связи между узлом a и b задана метка. Уберите метку на связи./n");
+                                 << (QList<Error>{
+                                        Error(Error::ExtraLabel, "a label=\"test\""),
+                                        Error(Error::InvalidNodeShape, "b"),
+                                        Error(Error::ExtraLabel, "b label=\"test\""),
+                                        Error(Error::NoTargetNode)
+                                    });
 
     // Тест 9: Граф с циклом
     QTest::newRow("GraphWithCycle") << "digraph test {\n"
@@ -237,8 +231,7 @@ void Tests::parseDOT_test_data(){
                                     "d->b;\n"
                                     "}"
                                  << true
-                                 << Error::ErrorType(0)
-                                 << QString("");
+                                 << (QList<Error>{});
 
     // Тест 10: Несвязный граф
     QTest::newRow("DisconnectedGraph") << "digraph test {\n"
@@ -249,8 +242,7 @@ void Tests::parseDOT_test_data(){
                                        "d->e;\n"
                                        "}"
                                     << true
-                                    << Error::ErrorType(0)
-                                    << QString("");
+                                       << (QList<Error>{});
 
     // Тест 11: Граф с летающим циклом
     QTest::newRow("GraphWithLevitateCycle") << "digraph test {\n"
@@ -263,8 +255,7 @@ void Tests::parseDOT_test_data(){
                                           "f->d;\n"
                                           "}"
                                        << true
-                                       << Error::ErrorType(0)
-                                       << QString("");
+                                            << (QList<Error>{});
 }
 
 void Tests::treeGraphTakeErrors_test(){

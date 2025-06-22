@@ -1,12 +1,14 @@
 #ifndef TREECOVERAGEANALYZER_H
 #define TREECOVERAGEANALYZER_H
 
+#include <QRegularExpression>
 #include <QHash>
 #include <QSet>
 #include <QList>
 #include <QPair>
 #include "Node.h"
 #include "Error.h"
+#include <QDebug>
 
 class TreeCoverageAnalyzer
 {
@@ -42,6 +44,7 @@ public:
     QSet<Node*> extraNodes;
     QSet<QPair<Node*, Node*>> redundantNodes;
     bool nodeIsCovered;
+    QList<Error> errors;
 };
 
 #endif // TREECOVERAGEANALYZER_H

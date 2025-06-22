@@ -10,7 +10,6 @@ public:
     enum ErrorType {
         EmptyFile,
         NoTargetNode,
-        NotATree,
         Cycle,
         DisconnectedGraph,
         MultiParents,
@@ -26,6 +25,10 @@ public:
     ErrorType type; // тип ошибки
     QString details; // дополнительные детали ошибки
     Node* errNode; // узел связанный с ошибкой
+
+    bool operator==(const Error& other) const {
+        return type == other.type;
+    }
 };
 
 #endif // ERROR_H
