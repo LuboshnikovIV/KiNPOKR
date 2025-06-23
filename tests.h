@@ -22,7 +22,9 @@ private:
     }
 
     void printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected, const QString& containerName);
+    void printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, const QSet<QList<Node*>>& expected, const QString& containerName);
     void printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected, const QString& containerName);
+
 
 private slots:
     // data driven тесты для функции parseDOT

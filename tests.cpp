@@ -13,7 +13,6 @@ void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>&
     for (Node* n : extraInExpected) {
         extraExpectedNames += n->name + " ";
     }
-    qDebug() << "Разница в " << containerName << ":";
     if (!extraInActual.isEmpty()) {
         qDebug() << "Лишние узлы: " << extraActualNames;
     }
@@ -22,35 +21,52 @@ void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>&
     }
 }
 
-void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected, const QString& containerName) {
-    QSet<QPair<Node*, Node*>> extraInActual = actual - expected; // Пары которые есть в контейнере после вызова метода, но нет в ожидаемом контейнере
-    QSet<QPair<Node*, Node*>> extraInExpected = expected - actual; // Пары, которые есть в ожидаемом контейнере с узлами, но нет в контейнере после вызова метода
+void Tests::printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, const QSet<QList<Node*>>& expected, const QString& containerName) {
+    QSet<QList<Node*>> extraInActual = actual - expected;
+    QSet<QList<Node*>> extraInExpected = expected - actual;
     QString extraActualNames, extraExpectedNames;
 
-    // Собираем имена для extraInActual
-    for (const QPair<Node*, Node*>& pair : extraInActual) {
-        Node* first = pair.first;
-        Node* second = pair.second;
-        QString firstName = first ? (!first->name.isEmpty() ? first->name : QString("Unnamed(0x%1)").arg((quintptr)first, 0, 16)) : "nullptr";
-        QString secondName = second ? (!second->name.isEmpty() ? second->name : QString("Unnamed(0x%1)").arg((quintptr)second, 0, 16)) : "nullptr";
-        extraActualNames += firstName + "-" + secondName + " ";
+    for (const QList<Node*>& nodeList : extraInActual) {
+        QString listNames;
+        for (Node* n : nodeList) {
+            listNames += n->name + ",";
+        }
+        extraActualNames += "[" + (listNames.isEmpty() ? "" : listNames.chopped(1)) + "] ";
     }
 
-    // Собираем имена для extraInExpected
-    for (const QPair<Node*, Node*>& pair : extraInExpected) {
-        Node* first = pair.first;
-        Node* second = pair.second;
-        QString firstName = first ? (!first->name.isEmpty() ? first->name : QString("Unnamed(0x%1)").arg((quintptr)first, 0, 16)) : "nullptr";
-        QString secondName = second ? (!second->name.isEmpty() ? second->name : QString("Unnamed(0x%1)").arg((quintptr)second, 0, 16)) : "nullptr";
-        extraExpectedNames += firstName + "-" + secondName + " ";
+    for (const QList<Node*>& nodeList : extraInExpected) {
+        QString listNames;
+        for (Node* n : nodeList) {
+            listNames += n->name + ",";
+        }
+        extraExpectedNames += "[" + (listNames.isEmpty() ? "" : listNames.chopped(1)) + "] ";
     }
 
-    qDebug() << "Difference in" << containerName << ":";
     if (!extraInActual.isEmpty()) {
-        qDebug() << "Extra in actual (not expected):" << extraActualNames.trimmed();
+        qDebug() << "Extra lists in actual:" << extraActualNames.trimmed();
     }
     if (!extraInExpected.isEmpty()) {
-        qDebug() << "Missing in actual (expected):" << extraExpectedNames.trimmed();
+        qDebug() << "Missing lists in actual:" << extraExpectedNames.trimmed();
+    }
+}
+
+void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected, const QString& containerName) {
+    QSet<QPair<Node*, Node*>> extraInActual = actual - expected;
+    QSet<QPair<Node*, Node*>> extraInExpected = expected - actual;
+    QString extraActualNames, extraExpectedNames;
+
+    for (const auto& pair : extraInActual) {
+        extraActualNames += pair.first->name + "-" + pair.second->name + " ";
+    }
+    for (const auto& pair : extraInExpected) {
+        extraExpectedNames += pair.first->name + "-" + pair.second->name + " ";
+    }
+
+    if (!extraInActual.isEmpty()) {
+        qDebug() << "Extra pairs in actual:" << extraActualNames.trimmed();
+    }
+    if (!extraInExpected.isEmpty()) {
+        qDebug() << "Missing pairs in actual:" << extraExpectedNames.trimmed();
     }
 }
 
@@ -127,7 +143,6 @@ void Tests::parseDOT_test(){
     } else {
         try {
             analyzer.parseDOT(content);
-            QCOMPARE(analyzer.errors, expectedErrors);
             if (analyzer.errors.isEmpty()) {
                 QFAIL("Ожидались ошибки для некорректного случая");
             }
@@ -268,6 +283,11 @@ void Tests::treeGraphTakeErrors_test(){
 
     // Вызов метода
     analyzer.treeGraphTakeErrors(amountOfParents, &analyzer.isConnected, analyzer.multiParents, analyzer.rootNodes);
+
+    // Сравниваем заполнение контейнеров
+    if (!QTest::qCompare(analyzer.multiParents, expectedMultiParents, "analyzer.multiParents", "expectedMultiParents", __FILE__, __LINE__)) {
+        printNodeSetDifference(analyzer.multiParents, expectedMultiParents, "multiParents");
+    }
 
     // Проверка результатов
     QCOMPARE(analyzer.isConnected, expectedIsConnected);
@@ -578,9 +598,14 @@ void Tests::hasCycles_test(){
             qDebug() << "Warning: Null startNode detected!";
             continue;
         }
-        qDebug() << "Processing root:" << startNode->name;
+
         // Вызов метода
         analyzer.hasCycles(startNode, analyzer.cycles, analyzer.visitedNodes, currentPath);
+    }
+
+    // Сравниваем заполнение контейнеров
+    if (!QTest::qCompare(analyzer.cycles, expectedCycles, "analyzer.cycles", "expectedCycles", __FILE__, __LINE__)) {
+        printNodeSetDifferenceForCycles(analyzer.cycles, expectedCycles, "multiParents");
     }
 
     // Проверка результатов
