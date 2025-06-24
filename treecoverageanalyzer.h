@@ -25,8 +25,8 @@ public:
     void parseDOT(const QString& content);
     void clearData();
     void fillHash(QList<Node*>& treeMap, QHash<Node*, int>& amountOfParents);
-    void treeGraphTakeErrors(QHash<Node*, int>& amountOfParents, bool* isConnected, QSet<Node*>& multiParents, QSet<Node*>& rootNodes);
-    void hasCycles(Node* node, QSet<QList<Node*>>& cycles, QSet<Node*>& visitedNodes, QList<Node*>& currentPath);
+    void treeGraphTakeErrors(QHash<Node*, int>& amountOfParents);
+    void hasCycles(Node* node, QList<Node*>& currentPath);
     void analyzeTreeCoverage();
     void analyzeZoneWithExtraNodes(Node* node);
     CoverageStatus analyzeZoneWithMissingNodes(Node* node);

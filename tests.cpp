@@ -70,10 +70,46 @@ void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& 
     }
 }
 
+bool compareNodes(const Node* node1, const Node* node2, QSet<QPair<const Node*, const Node*>>& visited) {
+    // Проверка на уже посещённую пару для предотвращения рекурсии
+    QPair<const Node*, const Node*> pair(node1, node2);
+    if (visited.contains(pair)) {
+        return true; // Считаем узлы эквивалентными, если уже посещены
+    }
+    visited.insert(pair);
+
+    // Проверка name и shape
+    if (node1->name != node2->name || node1->shape != node2->shape || node1->children.size() != node2->children.size()) {
+        return false;
+    }
+
+    // Сравнение children
+    QSet<Node*> children1(node1->children.begin(), node1->children.end());
+    QSet<Node*> children2(node2->children.begin(), node2->children.end());
+    if (children1.size() != children2.size()) {
+        return false;
+    }
+
+    for (Node* child1 : children1) {
+        bool foundMatch = false;
+        for (Node* child2 : children2) {
+            if (compareNodes(child1, child2, visited)) {
+                foundMatch = true;
+                break;
+            }
+        }
+        if (!foundMatch) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void Tests::parseDOT_test(){
     QFETCH(QString, content);
     QFETCH(bool, shouldSucceed);
     QFETCH(QList<Error>, expectedErrors);
+    QFETCH(QList<Node*>, expectedTreeMap);
 
     TreeCoverageAnalyzer analyzer;
 
@@ -81,59 +117,30 @@ void Tests::parseDOT_test(){
     if (shouldSucceed) {
         try {
             analyzer.parseDOT(content);
-            //qDebug() << "treeMap size:" << analyzer.treeMap.size();
             QVERIFY(!analyzer.treeMap.isEmpty());
-            if (analyzer.treeMap.size() == 3) {
-                // Проверка спаршенных узлов
-                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
-                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Selected);
-                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
-
-                // Проверка спаршенных связей
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[2]));
-            }
-            else if (analyzer.treeMap.size() == 4) {
-                // Проверка спаршенных узлов
-                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
-                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
-
-                // Проверка спаршенных связей
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
-                QVERIFY(analyzer.treeMap[1]->children.contains(analyzer.treeMap[2]));
-                QVERIFY(analyzer.treeMap[2]->children.contains(analyzer.treeMap[3]));
-                QVERIFY(analyzer.treeMap[3]->children.contains(analyzer.treeMap[1]));
-            }
-            else if (analyzer.treeMap.size() == 5) {
-                // Проверка спаршенных узлов
-                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
-                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[4] && analyzer.treeMap[4]->name == "e" && analyzer.treeMap[4]->shape == Node::Shape::Base);
-
-                // Проверка спаршенных связей
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[2]));
-                QVERIFY(analyzer.treeMap[3]->children.contains(analyzer.treeMap[4]));
-            }
-            else if(analyzer.treeMap.size() == 6){
-                // Проверка спаршенных узлов
-                QVERIFY(analyzer.treeMap[0] && analyzer.treeMap[0]->name == "a" && analyzer.treeMap[0]->shape == Node::Shape::Target);
-                QVERIFY(analyzer.treeMap[1] && analyzer.treeMap[1]->name == "b" && analyzer.treeMap[1]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[2] && analyzer.treeMap[2]->name == "c" && analyzer.treeMap[2]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[3] && analyzer.treeMap[3]->name == "d" && analyzer.treeMap[3]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[4] && analyzer.treeMap[4]->name == "e" && analyzer.treeMap[4]->shape == Node::Shape::Base);
-                QVERIFY(analyzer.treeMap[5] && analyzer.treeMap[5]->name == "f" && analyzer.treeMap[5]->shape == Node::Shape::Base);
-
-                // Проверка спаршенных связей
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[1]));
-                QVERIFY(analyzer.treeMap[0]->children.contains(analyzer.treeMap[2]));
-                QVERIFY(analyzer.treeMap[3]->children.contains(analyzer.treeMap[4]));
-                QVERIFY(analyzer.treeMap[4]->children.contains(analyzer.treeMap[5]));
-                QVERIFY(analyzer.treeMap[5]->children.contains(analyzer.treeMap[3]));
+            // Проверка размера treeMap
+            QCOMPARE(analyzer.treeMap.size(), expectedTreeMap.size());
+            // Поэлементное сравнение treeMap
+            QSet<QPair<const Node*, const Node*>> visited;
+            for (int i = 0; i < analyzer.treeMap.size(); ++i) {
+                if (!analyzer.treeMap[i] || !expectedTreeMap[i]) {
+                    QFAIL(("Обнаружен нулевой указатель в treeMap или expectedTreeMap на индексе " + QString::number(i)).toUtf8());
+                }
+                if (!compareNodes(analyzer.treeMap[i], expectedTreeMap[i], visited)) {
+                    // Отладка
+                    /*qDebug() << "Actual name:" << analyzer.treeMap[i]->name << ", Expected name:" << expectedTreeMap[i]->name;
+                    qDebug() << "Actual shape:" << (int)analyzer.treeMap[i]->shape << ", Expected shape:" << (int)expectedTreeMap[i]->shape;
+                    QString actualChildrenNames, expectedChildrenNames;
+                    for (Node* child : analyzer.treeMap[i]->children) {
+                        actualChildrenNames += child->name + " ";
+                    }
+                    for (Node* child : expectedTreeMap[i]->children) {
+                        expectedChildrenNames += child->name + " ";
+                    }
+                    qDebug() << "Actual children:" << actualChildrenNames.trimmed() << ", Expected children:" << expectedChildrenNames.trimmed();*/
+                    QFAIL(("Узлы различаются на индексе " + QString::number(i)).toUtf8());
+                }
+                visited.clear(); // Очищаем visited для следующей пары узлов
             }
         } catch (const Error& e) {
             QFAIL("Не ожидалось исключение для корректного случая");
@@ -155,54 +162,80 @@ void Tests::parseDOT_test(){
 
     // Отчистка результатов
     analyzer.clearData();
+    qDeleteAll(expectedTreeMap);
 }
 void Tests::parseDOT_test_data(){
     QTest::addColumn<QString>("content");
     QTest::addColumn<bool>("shouldSucceed");
     QTest::addColumn<QList<Error>>("expectedErrors");
+    QTest::addColumn<QList<Node*>>("expectedTreeMap");
 
     // Тест 1: Пустой файл
-    QTest::newRow("EmptyFile") << ""
+    {
+        QTest::newRow("EmptyFile") << ""
                                << false
-                               << (QList<Error>{Error(Error::EmptyFile)});
+                               << (QList<Error>{Error(Error::EmptyFile)})
+                               << QList<Node*>();
+    }
 
     // Тест 2: Отсутствует целевой узел
+    {
     QTest::newRow("NoTargetNode") << "digraph test {\n"
                                                 "a[shape=circle];\n"
                                                 "b[shape=diamond];\n"
                                                 "a->b;\n"
                                                 "}"
                                << false
-                               << (QList<Error>{Error(Error::NoTargetNode)});
+                               << (QList<Error>{Error(Error::NoTargetNode)})
+                               << QList<Node*>();
+    }
 
     // Тест 3: Ненаправленная связь
+    {
     QTest::newRow("UndirectedEdge") << "graph test {\n"
                                        "a[shape=square];\n"
                                        "b[shape=diamond];\n"
                                        "a--b;\n"
                                        "}"
                                << false
-                               << (QList<Error>{Error(Error::UndirectedEdge)});
+                               << (QList<Error>{Error(Error::UndirectedEdge)})
+                               << QList<Node*>();
+    }
 
     // Тест 4: Метка на связи
+    {
     QTest::newRow("EdgeLabel") << "digraph test {\n"
                                   "a[shape=square];\n"
                                   "b[shape=diamond];\n"
                                   "a->b[label=\"test\"];\n"
                                   "}"
                                << false
-                               << (QList<Error>{Error(Error::ExtraLabel, "b label=\"test\""), Error(Error::EdgeLabel)});
+                               << (QList<Error>{Error(Error::EdgeLabel)})
+                               << QList<Node*>();
+    }
 
     // Тест 5: Неверная форма узла
+    {
     QTest::newRow("InvalidNodeShape") << "digraph test {\n"
                                          "a[shape=square];\n"
                                          "b[shape=star];\n"
                                          "a->b;\n"
                                          "}"
                                << false
-                                      << (QList<Error>{Error(Error::InvalidNodeShape, "b")});
+                                      << (QList<Error>{Error(Error::InvalidNodeShape, "b")})
+                                   << QList<Node*>();
+    }
 
     // Тест 6: Корректный граф
+    {
+    QHash<Node*, int> amountOfParents;
+    QList<Node*> expectedTreeMap;
+    Node* a = createNode("a", Node::Shape::Target);
+    Node* b = createNode("b", Node::Shape::Selected);
+    Node* c = createNode("c", Node::Shape::Base);
+    addEdge(a, b, amountOfParents);
+    addEdge(a, c, amountOfParents);
+    expectedTreeMap << a << b << c;
     QTest::newRow("CorrectGraph") << "digraph test {\n"
                                      "a[shape=square];\n"
                                      "b[shape=diamond];\n"
@@ -211,18 +244,24 @@ void Tests::parseDOT_test_data(){
                                      "a->c;\n"
                                      "}"
                                << true
-                                  << (QList<Error>{});
+                                  << (QList<Error>{})
+                                   << expectedTreeMap;
+    }
 
     // Тест 7: Дополнительная метка узла
+    {
     QTest::newRow("ExtraLabel") << "digraph test {\n"
                                    "a[shape=square,label=\"test\"];\n"
                                    "b[shape=diamond];\n"
                                    "a->b;\n"
                                    "}"
                                << false
-                                << (QList<Error>{Error(Error::ExtraLabel, "a lable=\"test\"")});
+                                << (QList<Error>{Error(Error::ExtraLabel, "a lable=\"test\"")})
+                                << QList<Node*>();
+    }
 
     // Тест 8: Комплексный
+    {
     QTest::newRow("ComplexCase") << "graph test {\n"
                                     "a[shape=circle,label=\"test\"];\n"
                                     "b[shape=star];\n"
@@ -232,11 +271,24 @@ void Tests::parseDOT_test_data(){
                                  << (QList<Error>{
                                         Error(Error::ExtraLabel, "a label=\"test\""),
                                         Error(Error::InvalidNodeShape, "b"),
-                                        Error(Error::ExtraLabel, "b label=\"test\""),
+                                        Error(Error(Error::EdgeLabel)),
                                         Error(Error::NoTargetNode)
-                                    });
+                                    })
+                                   << QList<Node*>();
+    }
 
     // Тест 9: Граф с циклом
+    {
+    QList<Node*> expectedTreeMap;
+    Node* a = createNode("a", Node::Shape::Target);
+    Node* b = createNode("b", Node::Shape::Base);
+    Node* c = createNode("c", Node::Shape::Base);
+    Node* d = createNode("d", Node::Shape::Base);
+    a->children << b;
+    b->children << c;
+    c->children << d;
+    d->children << b;
+    expectedTreeMap << a << b << c << d;
     QTest::newRow("GraphWithCycle") << "digraph test {\n"
                                     "a[shape=square];\n"
                                     "b,c,d[shape=circle];\n"
@@ -246,9 +298,21 @@ void Tests::parseDOT_test_data(){
                                     "d->b;\n"
                                     "}"
                                  << true
-                                 << (QList<Error>{});
+                                 << (QList<Error>{})
+                                   << expectedTreeMap;
+    }
 
     // Тест 10: Несвязный граф
+    {
+    QList<Node*> expectedTreeMap;
+    Node* a = createNode("a", Node::Shape::Target);
+    Node* b = createNode("b", Node::Shape::Base);
+    Node* c = createNode("c", Node::Shape::Base);
+    Node* d = createNode("d", Node::Shape::Base);
+    Node* e = createNode("e", Node::Shape::Base);
+    a->children << b << c;
+    d->children << e;
+    expectedTreeMap << a << b << c << d << e;
     QTest::newRow("DisconnectedGraph") << "digraph test {\n"
                                        "a[shape=square];\n"
                                        "b,c,d,e[shape=circle];\n"
@@ -257,9 +321,24 @@ void Tests::parseDOT_test_data(){
                                        "d->e;\n"
                                        "}"
                                     << true
-                                       << (QList<Error>{});
+                                       << (QList<Error>{})
+                                   << expectedTreeMap;
+    }
 
     // Тест 11: Граф с летающим циклом
+    {
+    QList<Node*> expectedTreeMap;
+    Node* a = createNode("a", Node::Shape::Target);
+    Node* b = createNode("b", Node::Shape::Base);
+    Node* c = createNode("c", Node::Shape::Base);
+    Node* d = createNode("d", Node::Shape::Base);
+    Node* e = createNode("e", Node::Shape::Base);
+    Node* f = createNode("f", Node::Shape::Base);
+    a->children << b << c;
+    d->children << e;
+    e->children << f;
+    f->children << d;
+    expectedTreeMap << a << b << c << d << e << f;
     QTest::newRow("GraphWithLevitateCycle") << "digraph test {\n"
                                           "a[shape=square];\n"
                                           "b,c,d,e,f[shape=circle];\n"
@@ -270,19 +349,22 @@ void Tests::parseDOT_test_data(){
                                           "f->d;\n"
                                           "}"
                                        << true
-                                            << (QList<Error>{});
+                                            << (QList<Error>{})
+                               << expectedTreeMap;
+    }
 }
 
 void Tests::treeGraphTakeErrors_test(){
     QFETCH(NODE_PARENT_HASH, amountOfParents);
-    QFETCH(QSet<Node*>, rootNodes);
+    QFETCH(QSet<Node*>, expectedRootNodes);
     QFETCH(bool, expectedIsConnected);
     QFETCH(QSet<Node*>, expectedMultiParents);
+    QFETCH(QList<Error>, expectedErrors);
 
     TreeCoverageAnalyzer analyzer;
 
     // Вызов метода
-    analyzer.treeGraphTakeErrors(amountOfParents, &analyzer.isConnected, analyzer.multiParents, analyzer.rootNodes);
+    analyzer.treeGraphTakeErrors(amountOfParents);
 
     // Сравниваем заполнение контейнеров
     if (!QTest::qCompare(analyzer.multiParents, expectedMultiParents, "analyzer.multiParents", "expectedMultiParents", __FILE__, __LINE__)) {
@@ -290,28 +372,32 @@ void Tests::treeGraphTakeErrors_test(){
     }
 
     // Проверка результатов
+    QCOMPARE(analyzer.rootNodes, expectedRootNodes);
     QCOMPARE(analyzer.isConnected, expectedIsConnected);
     QCOMPARE(analyzer.multiParents, expectedMultiParents);
+    QCOMPARE(analyzer.errors, expectedErrors);
 
     // Очистка через clearData
     analyzer.clearData();
 }
 void Tests::treeGraphTakeErrors_test_data(){
     QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
-    QTest::addColumn<QSet<Node*>>("rootNodes");
+    QTest::addColumn<QSet<Node*>>("expectedRootNodes");
     QTest::addColumn<bool>("expectedIsConnected");
     QTest::addColumn<QSet<Node*>>("expectedMultiParents");
+    QTest::addColumn<QList<Error>>("expectedErrors");
 
     // Тест 1: Дерево состоящее из одного узла
     {
         NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
-        QSet<Node*> rootNodes;
-        rootNodes << a;
+        QSet<Node*> expectedRootNodes;
+        expectedRootNodes << a;
         QTest::newRow("GraphConsistOfOneNode") << amountOfParents
-                                               << rootNodes
+                                               << expectedRootNodes
                                                << true
-                                               << QSet<Node*>();
+                                               << QSet<Node*>()
+                                               << QList<Error>();
     }
 
     // Тест 2: Узел с двумя родителями
@@ -329,10 +415,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents);
         QTest::newRow("NodeWithTwoParents") << amountOfParents
                                             << rootNodes
                                             << true
-                                            << expectedMultiParents;
+                                            << expectedMultiParents
+                                            << expectedErrors;
     }
 
     // Тест 3: Несвязный граф
@@ -346,10 +435,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         addEdge(c, g, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a << c;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::DisconnectedGraph);
         QTest::newRow("DisconnectedGraph") << amountOfParents
                                            << rootNodes
                                            << false
-                                           << QSet<Node*>();
+                                           << QSet<Node*>()
+                                           << expectedErrors;
     }
 
     // Тест 4: Множественные родители у нескольких узлов
@@ -370,10 +462,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d << k;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents);
         QTest::newRow("MultiNodesHaveMultiParents") << amountOfParents
                                                     << rootNodes
                                                     << true
-                                                    << expectedMultiParents;
+                                                    << expectedMultiParents
+                                                    << expectedErrors;
     }
 
     // Тест 5: Граф с циклом
@@ -387,10 +482,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         addEdge(c, a, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::Cycle);
         QTest::newRow("GraphWithCycle") << amountOfParents
                                         << rootNodes
                                         << true
-                                        << QSet<Node*>();
+                                        << QSet<Node*>()
+                                        << expectedErrors;
     }
 
     // Тест 6: Граф с узлом без родителей (не корень)
@@ -402,10 +500,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         addEdge(a, b, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::DisconnectedGraph);
         QTest::newRow("GraphWithNodeWithoutParents") << amountOfParents
                                                      << rootNodes
                                                      << false
-                                                     << QSet<Node*>();
+                                                     << QSet<Node*>()
+                                                     << expectedErrors;
     }
 
     // Тест 7: Граф где все узлы имеют 2 родителя
@@ -422,10 +523,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << b << c;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents) << Error(Error::Cycle);
         QTest::newRow("NonrootNodesHaveTwoParents") << amountOfParents
                                                     << rootNodes
                                                     << true
-                                                    << expectedMultiParents;
+                                                    << expectedMultiParents
+                                                    << expectedErrors;
     }
 
     // Тест 8: Граф с одним узлом и циклом на себя
@@ -435,10 +539,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         addEdge(a, a, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::Cycle);
         QTest::newRow("OneNodeWithCycle") << amountOfParents
                                           << rootNodes
                                           << true
-                                          << QSet<Node*>();
+                                          << QSet<Node*>()
+                                          << expectedErrors;
     }
 
     // Тест 9: Граф с летающим циклом
@@ -455,10 +562,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         addEdge(e, c, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::DisconnectedGraph);
         QTest::newRow("GraphWithLevitateCycle") << amountOfParents
                                                 << rootNodes
                                                 << false
-                                                << QSet<Node*>();
+                                                << QSet<Node*>()
+                                                << expectedErrors;
     }
 
     // Тест 10: Три родителя у узла
@@ -477,10 +587,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents);
         QTest::newRow("ThreeParentsForNode") << amountOfParents
                                              << rootNodes
                                              << true
-                                             << expectedMultiParents;
+                                             << expectedMultiParents
+                                             << expectedErrors;
     }
 
     // Тест 11: Сложный граф с множеством родителей
@@ -509,10 +622,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << c << g << r << l;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents);
         QTest::newRow("GraphWithHightNestingAndMultiParents") << amountOfParents
                                                               << rootNodes
                                                               << true
-                                                              << expectedMultiParents;
+                                                              << expectedMultiParents
+                                                              << expectedErrors;
     }
 
     // Тест 12: Связный граф с двумя корнями
@@ -529,10 +645,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a << c;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << b;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents);
         QTest::newRow("ConnectedGraphWithTwoRoots") << amountOfParents
                                                               << rootNodes
                                                               << true
-                                                              << expectedMultiParents;
+                                                              << expectedMultiParents
+                                                              << expectedErrors;
     }
 
     // Тест 13: Граф с множеством корней и летающий цикл
@@ -555,10 +674,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         rootNodes << a << c;
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << b;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::MultiParents) << Error(Error::DisconnectedGraph);
         QTest::newRow("GraphWithMultiRootsAndLevitatingCycle") << amountOfParents
-                                                    << rootNodes
-                                                    << false
-                                                    << expectedMultiParents;
+                                                               << rootNodes
+                                                               << false
+                                                               << expectedMultiParents
+                                                               << expectedErrors;
     }
 
     // Тест 14: Два летающих цикла
@@ -578,10 +700,13 @@ void Tests::treeGraphTakeErrors_test_data(){
         addEdge(f, d, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
+        QList<Error> expectedErrors;
+        expectedErrors << Error(Error::Cycle) << Error(Error::DisconnectedGraph);
         QTest::newRow("TwoLevitateCycles") << amountOfParents
                                                                << rootNodes
                                                                << false
-                                                               << QSet<Node*>();
+                                                               << QSet<Node*>()
+                                                               << expectedErrors;
     }
 }
 
@@ -589,18 +714,20 @@ void Tests::hasCycles_test(){
     QFETCH(NODE_PARENT_HASH, amountOfParents);
     QFETCH(QSet<Node*>, rootNodes);
     QFETCH(QSet<QList<Node*>>, expectedCycles);
+    QFETCH(QSet<Node*>, expectedVisitedNodes);
+    QFETCH(QList<Error>, expectedError);
 
     TreeCoverageAnalyzer analyzer;
     QList<Node*> currentPath;
 
     for(Node* startNode: rootNodes){
         if (!startNode) {
-            qDebug() << "Warning: Null startNode detected!";
+            //qDebug() << "Warning: Null startNode detected!";
             continue;
         }
 
         // Вызов метода
-        analyzer.hasCycles(startNode, analyzer.cycles, analyzer.visitedNodes, currentPath);
+        analyzer.hasCycles(startNode, currentPath);
     }
 
     // Сравниваем заполнение контейнеров
@@ -610,6 +737,8 @@ void Tests::hasCycles_test(){
 
     // Проверка результатов
     QCOMPARE(analyzer.cycles, expectedCycles);
+    QCOMPARE(analyzer.visitedNodes, expectedVisitedNodes);
+    QCOMPARE(analyzer.errors, expectedError);
 
     // Отчистка данных
     analyzer.clearData();
@@ -618,6 +747,8 @@ void Tests::hasCycles_test_data(){
     QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
     QTest::addColumn<QSet<Node*>>("rootNodes");
     QTest::addColumn<QSet<QList<Node*>>>("expectedCycles");
+    QTest::addColumn<QSet<Node*>>("expectedVisitedNodes");
+    QTest::addColumn<QList<Error>>("expectedError");
 
     // Тест 1: Граф без цикла
     {
@@ -629,9 +760,13 @@ void Tests::hasCycles_test_data(){
         addEdge(a, c, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c;
         QTest::newRow("GraphWithoutCycle") << amountOfParents
                                            << rootNodes
-                                           << QSet<QList<Node*>>();
+                                           << QSet<QList<Node*>>()
+                                           << expectedVisitedNodes
+                                           << QList<Error>();
     }
 
     // Тест 2: Граф состоящий из цикла
@@ -647,9 +782,15 @@ void Tests::hasCycles_test_data(){
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("GraphWithCycle") << amountOfParents
                                         << rootNodes
-                                        << expectedCycles;
+                                        << expectedCycles
+                                        << expectedVisitedNodes
+                                        << expectedError;
     }
 
     // Тест 3: Граф с левитирующим циклом
@@ -658,13 +799,23 @@ void Tests::hasCycles_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
-        addEdge(c, b, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, d, amountOfParents);
         QSet<Node*> rootNodes;
-        rootNodes << a << c;
+        rootNodes << a;
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c;
         QTest::newRow("GraphWithLevitatingCycle") << amountOfParents
                                                   << rootNodes
-                                                  << QSet<QList<Node*>>();
+                                                  << QSet<QList<Node*>>()
+                                                  << expectedVisitedNodes
+                                                  << QList<Error>();
     }
 
     // Тест 4: Граф с циклом на себя
@@ -676,9 +827,15 @@ void Tests::hasCycles_test_data(){
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("GraphWithSelfCycle") << amountOfParents
                                             << rootNodes
-                                            << expectedCycles;
+                                            << expectedCycles
+                                            << expectedVisitedNodes
+                                            << expectedError;
     }
 
     // Тест 5: Граф с несколькими циклами
@@ -704,9 +861,15 @@ void Tests::hasCycles_test_data(){
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, d, e} << QList<Node*>{c, f, g} << QList<Node*>{e, g};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c << d << e << f << g;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("GraphWithMultipleCycles") << amountOfParents
                                                  << rootNodes
-                                                 << expectedCycles;
+                                                 << expectedCycles
+                                                 << expectedVisitedNodes
+                                                 << expectedError;
     }
 
     // Тест 6: Граф с циклом
@@ -721,12 +884,18 @@ void Tests::hasCycles_test_data(){
         addEdge(c, d, amountOfParents);
         addEdge(d, b, amountOfParents);
         QSet<Node*> rootNodes;
-        rootNodes << a << c;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c, d};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c << d;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("GraphWithSimpleCycle") << amountOfParents
                                               << rootNodes
-                                              << expectedCycles;
+                                              << expectedCycles
+                                              << expectedVisitedNodes
+                                              << expectedError;
     }
 
     // Тест 7: Граф с циклом и ответвлением
@@ -744,9 +913,15 @@ void Tests::hasCycles_test_data(){
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c << d;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("GraphWithCycleAndBranch") << amountOfParents
                                                  << rootNodes
-                                                 << expectedCycles;
+                                                 << expectedCycles
+                                                 << expectedVisitedNodes
+                                                 << expectedError;
     }
 
     // Тест 8: Граф с большим циклом
@@ -755,12 +930,14 @@ void Tests::hasCycles_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
         Node* e = createNode("e", Node::Shape::Base);
         Node* f = createNode("f", Node::Shape::Base);
         Node* g = createNode("g", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
-        addEdge(c, e, amountOfParents);
+        addEdge(c, d, amountOfParents);
+        addEdge(d, e, amountOfParents);
         addEdge(e, f, amountOfParents);
         addEdge(f, g, amountOfParents);
         addEdge(g, b, amountOfParents);
@@ -768,9 +945,15 @@ void Tests::hasCycles_test_data(){
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c, e, f, g};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c << d << e << f << g;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("GraphWithLargeCycle") << amountOfParents
                                              << rootNodes
-                                             << expectedCycles;
+                                             << expectedCycles
+                                             << expectedVisitedNodes
+                                             << expectedError;
     }
 
     // Тест 9: Узел с тремя циклами
@@ -792,9 +975,15 @@ void Tests::hasCycles_test_data(){
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{b, c} << QList<Node*>{b, d} << QList<Node*>{b, e};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c << d << e;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("NodeWithThreeCycles") << amountOfParents
                                              << rootNodes
-                                             << expectedCycles;
+                                             << expectedCycles
+                                             << expectedVisitedNodes
+                                             << expectedError;
     }
 
     // Тест 10: Два циклических графа
@@ -803,16 +992,28 @@ void Tests::hasCycles_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(b, c, amountOfParents);
         addEdge(c, a, amountOfParents);
+        addEdge(d, e, amountOfParents);
+        addEdge(e, f, amountOfParents);
+        addEdge(f, d, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
         expectedCycles << QList<Node*>{a, b, c};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("TwoCyclicGraphs") << amountOfParents
                                          << rootNodes
-                                         << expectedCycles;
+                                         << expectedCycles
+                                         << expectedVisitedNodes
+                                         << expectedError;
     }
 
     // Тест 11: Два графа с циклами
@@ -835,12 +1036,18 @@ void Tests::hasCycles_test_data(){
         addEdge(g, h, amountOfParents);
         addEdge(h, f, amountOfParents);
         QSet<Node*> rootNodes;
-        rootNodes << a << e;
+        rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{b, c, d} << QList<Node*>{f, g, h};
+        expectedCycles << QList<Node*>{b, c, d};
+        QSet<Node*> expectedVisitedNodes;
+        expectedVisitedNodes << a << b << c << d;
+        QList<Error> expectedError;
+        expectedError << Error(Error::Cycle);
         QTest::newRow("TwoGraphsWithCycle") << amountOfParents
                                          << rootNodes
-                                         << expectedCycles;
+                                         << expectedCycles
+                                         << expectedVisitedNodes
+                                         <<expectedError;
     }
 
 }
@@ -1616,16 +1823,18 @@ void Tests::analyzeZoneWithRedundant_test(){
     QFETCH(NODE_PARENT_HASH, amountOfParents);
     QFETCH(Node*, node);
     QFETCH(REDUNDANT_NODES, expectedRedundantNodes);
-
+    QFETCH(REDUNDANT_NODES, predefinedRedundantNodes);
     TreeCoverageAnalyzer analyzer;
+
+    analyzer.redundantNodes = predefinedRedundantNodes;
+
+    // Вызов метода
+    analyzer.analyzeZoneWithRedundantNodes(node);
 
     // Выводом разницы при провале
     if (!QTest::qCompare(analyzer.redundantNodes, expectedRedundantNodes, "analyzer.redundantNodes", "expectedRedundantNodes", __FILE__, __LINE__)) {
         printNodeSetDifferenceForRedundant(analyzer.redundantNodes, expectedRedundantNodes, "redundantNodes");
     }
-
-    // Вызов метода
-    analyzer.analyzeZoneWithRedundantNodes(node);
 
     // Проверка результатов
     QCOMPARE(analyzer.redundantNodes, expectedRedundantNodes);
@@ -1637,6 +1846,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
     QTest::addColumn<NODE_PARENT_HASH>("amountOfParents");
     QTest::addColumn<Node*>("node");
     QTest::addColumn<REDUNDANT_NODES>("expectedRedundantNodes");
+    QTest::addColumn<REDUNDANT_NODES>("predefinedRedundantNodes");
 
     // Тест 1: Один узел, нет избыточных
     {
@@ -1644,6 +1854,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         QTest::newRow("NoRedundant") << amountOfParents
                                      << a
+                                     << QSet<QPair<Node*, Node*>>()
                                      << QSet<QPair<Node*, Node*>>();
     }
 
@@ -1659,7 +1870,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         expectedRedundantNodes << qMakePair(b, c);
         QTest::newRow("OneRedundantNode") << amountOfParents
                                           << c
-                                          << expectedRedundantNodes;
+                                          << expectedRedundantNodes
+                                          << QSet<QPair<Node*, Node*>>();
     }
 
     // Тест 3: Множество избыточных узлов после отмеченного
@@ -1676,7 +1888,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         expectedRedundantNodes << qMakePair(b, c) << qMakePair(b, d);
         QTest::newRow("MultiRedundantNodes") << amountOfParents
                                              << c
-                                             << expectedRedundantNodes;
+                                             << expectedRedundantNodes
+                                             << QSet<QPair<Node*, Node*>>();
     }
 
     // Тест 4: Избыточные узлы находятся в разных ветках
@@ -1692,10 +1905,13 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(b, d, amountOfParents);
         addEdge(c, e, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(c, e);
+        expectedRedundantNodes << qMakePair(b, d) << qMakePair(c, e);
+        QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
+        predefinedRedundantNodes << qMakePair(b, d);
         QTest::newRow("RedundantNodesInDiffrentBranches") << amountOfParents
                                                           << e
-                                                          << expectedRedundantNodes;
+                                                          << expectedRedundantNodes
+                                                          << predefinedRedundantNodes;
     }
 
     // Тест 5: Зона с избыточными узлами есть, но избыточных узлов нет
@@ -1710,6 +1926,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(c, d, amountOfParents);
         QTest::newRow("ZoneWithRedundantIsThereButNotRedundantNodes") << amountOfParents
                                                                       << c
+                                                                      << QSet<QPair<Node*, Node*>>()
                                                                       << QSet<QPair<Node*, Node*>>();
     }
 
@@ -1731,7 +1948,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         expectedRedundantNodes << qMakePair(b, f);
         QTest::newRow("RedundantNodesHasHightNesting") << amountOfParents
                                                        << c
-                                                       << expectedRedundantNodes;
+                                                       << expectedRedundantNodes
+                                                       << QSet<QPair<Node*, Node*>>();
     }
 
     // Тест 7: Не во всех ветках есть избыточный узел
@@ -1748,9 +1966,14 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(b, c, amountOfParents);
         addEdge(c, d, amountOfParents);
         addEdge(e, f, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(b, d);
+        QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
+        predefinedRedundantNodes << qMakePair(b, d);
         QTest::newRow("NotInAllBranchesHaveRedundantNode") << amountOfParents
                                                            << f
-                                                           << QSet<QPair<Node*, Node*>>();
+                                                           << expectedRedundantNodes
+                                                           << predefinedRedundantNodes;
     }
 
     // Тест 8: Избыточный узел до целевого
@@ -1767,7 +1990,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         expectedRedundantNodes << qMakePair(e, r);
         QTest::newRow("RedundantNodeBeforeTargetNode") << amountOfParents
                                                        << r
-                                                       << expectedRedundantNodes;
+                                                       << expectedRedundantNodes
+                                                       << QSet<QPair<Node*, Node*>>();
     }
 
     // Тест 9: Избыточный узел не находится в ветке с целевым
@@ -1782,9 +2006,14 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(e, d, amountOfParents);
         addEdge(d, a, amountOfParents);
         addEdge(a, b, amountOfParents);
+        QSet<QPair<Node*, Node*>> expectedRedundantNodes;
+        expectedRedundantNodes << qMakePair(e, r);
+        QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
+        predefinedRedundantNodes << qMakePair(e, r);
         QTest::newRow("RedundantNodeNotLocateInBranchWithTarget") << amountOfParents
                                                                   << d
-                                                                  << QSet<QPair<Node*, Node*>>();
+                                                                  << expectedRedundantNodes
+                                                                  << predefinedRedundantNodes;
     }
 
     // Тест 10: Комбинированное расположение избыточных узлов
@@ -1802,10 +2031,13 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(a, b, amountOfParents);
         addEdge(b, g, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(b, g);
+        expectedRedundantNodes << qMakePair(e, r) << qMakePair(e, d) << qMakePair(b, g);
+        QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
+        predefinedRedundantNodes << qMakePair(e, r) << qMakePair(e, d);
         QTest::newRow("MixedLocateRedundantNodes") << amountOfParents
                                                    << g
-                                                   << expectedRedundantNodes;
+                                                   << expectedRedundantNodes
+                                                   << predefinedRedundantNodes;
     }
 
     // Тест 11: Сложный граф с высокой вложенностью
@@ -1837,10 +2069,13 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(e, f, amountOfParents);
         addEdge(e, h, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(c, e) << qMakePair(c, f) << qMakePair(c, h);
+        expectedRedundantNodes << qMakePair(j, l) << qMakePair(c, e) << qMakePair(c, f) << qMakePair(c, h);
+        QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
+        predefinedRedundantNodes << qMakePair(j, l);
         QTest::newRow("DifficultGraphWithHightNesting") << amountOfParents
                                                         << d
-                                                        << expectedRedundantNodes;
+                                                        << expectedRedundantNodes
+                                                        << predefinedRedundantNodes;
     }
 
     // Тест 12: Все узлы в графе кроме корня отмечены
@@ -1882,9 +2117,12 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(m, p, amountOfParents);
         addEdge(p, r, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(a, d) << qMakePair(a, m) << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p) << qMakePair(a, r);
+        expectedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f) << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h) << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k) << qMakePair(a, l) << qMakePair(a, d) << qMakePair(a, m) << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p) << qMakePair(a, r);
+        QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
+        predefinedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f) << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h) << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k) << qMakePair(a, l);
         QTest::newRow("AllNodesSelectedExceptTarget") << amountOfParents
                                                       << d
-                                                      << expectedRedundantNodes;
+                                                      << expectedRedundantNodes
+                                                      << predefinedRedundantNodes;
     }
 }

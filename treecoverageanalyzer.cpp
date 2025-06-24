@@ -13,11 +13,10 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
 
     if (content.trimmed().isEmpty()) {
         errors.append(Error(Error::EmptyFile));
-        //qDebug() << "Error: EmptyFile";
-        return; // Вместо throw, чтобы избежать исключений в тестах
+        return;
     }
 
-    // Гибкое регулярное выражение для узлов с любым количеством атрибутов
+    // Гибкое регулярное выражение для узлов
     QRegularExpression nodeRegex(R"((\w+(?:,\w+)*)\s*\[(.*?)\]\s*;)");
     QRegularExpressionMatchIterator nodeIter = nodeRegex.globalMatch(content);
 
@@ -26,30 +25,44 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
 
     while (nodeIter.hasNext()) {
         QRegularExpressionMatch match = nodeIter.next();
-        QString nodeList = match.captured(1); // Список узлов (например, "b,c,d")
-        QString attributesStr = match.captured(2); // Полная строка атрибутов внутри []
+        QString nodeList = match.captured(1);
+        QString attributesStr = match.captured(2);
 
         QStringList nodes = nodeList.split(',');
-        Node::Shape nodeShape = Node::Base; // Значение по умолчанию
+        Node::Shape nodeShape = Node::Base;
         bool shapeValid = false;
 
-        // Регулярное выражение для извлечения всех атрибутов (ключ=значение)
-        QRegularExpression attrRegex(R"(\s*(\w+)\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,|\s*$))");
-        QRegularExpressionMatchIterator attrIter = attrRegex.globalMatch(attributesStr);
-        QMap<QString, QString> attrMap; // Храним все атрибуты как ключ-значение
+        // Регулярное выражение для атрибутов узлов: shape и, возможно, label
+        QRegularExpression attrRegex(R"(\s*shape\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)?)");
+        QRegularExpressionMatch attrMatch = attrRegex.match(attributesStr);
+        QMap<QString, QString> attrMap;
 
-        while (attrIter.hasNext()) {
-            QRegularExpressionMatch attrMatch = attrIter.next();
-            QString key = attrMatch.captured(1).trimmed();
-            QString value = attrMatch.captured(2).trimmed();
-            // Удаляем кавычки, если они есть
-            if (value.startsWith('"') && value.endsWith('"')) {
-                value = value.mid(1, value.length() - 2);
-            } else if (value.startsWith('\'') && value.endsWith('\'')) {
-                value = value.mid(1, value.length() - 2);
+        if (attrMatch.hasMatch()) {
+            QString shapeValue = attrMatch.captured(1);
+            if (shapeValue.startsWith('"') && shapeValue.endsWith('"')) {
+                shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
+            } else if (shapeValue.startsWith('\'') && shapeValue.endsWith('\'')) {
+                shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
             }
-            attrMap[key.toLower()] = value;
-            //qDebug() << "Found node attribute:" << key << "=" << value;
+            attrMap["shape"] = shapeValue;
+
+            if (attrMatch.captured(2).isEmpty()) {
+                // Если label отсутствует, ничего не делаем
+            } else {
+                QString labelValue = attrMatch.captured(2);
+                if (labelValue.startsWith('"') && labelValue.endsWith('"')) {
+                    labelValue = labelValue.mid(1, labelValue.length() - 2);
+                } else if (labelValue.startsWith('\'') && labelValue.endsWith('\'')) {
+                    labelValue = labelValue.mid(1, labelValue.length() - 2);
+                }
+                attrMap["label"] = labelValue;
+            }
+        } else {
+            // Если строка атрибутов не соответствует ожидаемому формату
+            for (const QString& name : nodes) {
+                errors.append(Error(Error::ExtraLabel, QString("%1 имеет некорректные атрибуты: %2").arg(name.trimmed(), attributesStr)));
+            }
+            continue;
         }
 
         // Проверяем атрибут shape
@@ -69,23 +82,15 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             if (!shapeValid) {
                 for (const QString& name : nodes) {
                     errors.append(Error(Error::InvalidNodeShape, name.trimmed()));
-                    //qDebug() << "Error: InvalidNodeShape for" << name.trimmed();
                 }
                 continue;
             }
         }
 
-        // Проверяем дополнительные атрибуты (кроме shape) для узлов
-        attrMap.remove("shape"); // Убираем shape из проверки ExtraLabel
-        if (!attrMap.isEmpty()) {
+        // Проверяем наличие label (ExtraLabel для узлов)
+        if (attrMap.contains("label")) {
             for (const QString& name : nodes) {
-                QString extraAttrs;
-                for (auto it = attrMap.constBegin(); it != attrMap.constEnd(); ++it) {
-                    extraAttrs += QString("%1=\"%2\"").arg(it.key(), it.value());
-                    if (it != --attrMap.constEnd()) extraAttrs += ", ";
-                }
-                errors.append(Error(Error::ExtraLabel, QString("%1 %2").arg(name.trimmed(), extraAttrs)));
-                //qDebug() << "Error: ExtraLabel for" << name.trimmed() << extraAttrs;
+                errors.append(Error(Error::ExtraLabel, QString("%1 label=\"%2\"").arg(name.trimmed(), attrMap["label"])));
             }
         }
 
@@ -97,17 +102,15 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             Node* node = new Node(trimmedName, nodeShape);
             treeMap.append(node);
             nodeNameMap[trimmedName] = node;
-            //qDebug() << "Added node:" << trimmedName << "shape:" << nodeShape;
         }
     }
 
     if (!hasTargetNode) {
         errors.append(Error(Error::NoTargetNode));
-        //qDebug() << "Error: NoTargetNode";
         return;
     }
 
-    // Обработка направленных связей с атрибутами
+    // Обработка направленных связей
     QRegularExpression edgeRegex(R"((\w+)\s*->\s*(\w+)\s*(?:\[([^\]]+)\])?\s*;)");
     QRegularExpressionMatchIterator edgeIter = edgeRegex.globalMatch(content);
 
@@ -115,43 +118,31 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         QRegularExpressionMatch match = edgeIter.next();
         QString parentName = match.captured(1);
         QString childName = match.captured(2);
-        QString edgeAttrsStr = match.captured(3); // Атрибуты ребра, если есть
+        QString edgeAttrsStr = match.captured(3);
 
         Node* parent = nodeNameMap.value(parentName);
         Node* child = nodeNameMap.value(childName);
 
         if (!parent || !child) {
-            //qDebug() << "Node not found for edge" << parentName << "->" << childName;
             continue;
         }
 
         parent->children.append(child);
         amountOfParents[child] = amountOfParents.value(child, 0) + 1;
-        //qDebug() << "Added directed edge:" << parentName << "->" << childName;
 
-        // Проверяем атрибуты ребра
+        // Проверяем атрибуты ребра: только label
         if (!edgeAttrsStr.isEmpty()) {
-            QRegularExpression attrRegex(R"(\s*(\w+)\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,|\s*$))");
-            QRegularExpressionMatchIterator attrIter = attrRegex.globalMatch(edgeAttrsStr);
-            while (attrIter.hasNext()) {
-                QRegularExpressionMatch attrMatch = attrIter.next();
-                QString key = attrMatch.captured(1).trimmed();
-                QString value = attrMatch.captured(2).trimmed();
-                if (value.startsWith('"') && value.endsWith('"')) {
-                    value = value.mid(1, value.length() - 2);
-                } else if (value.startsWith('\'') && value.endsWith('\'')) {
-                    value = value.mid(1, value.length() - 2);
-                }
-                //qDebug() << "Found edge attribute:" << key << "=" << value;
-                if (key.toLower() == "label") {
-                    errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(parentName, childName)));
-                    //qDebug() << "Error: EdgeLabel for" << parentName << "->" << childName;
-                }
+            QRegularExpression attrRegex(R"(\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)");
+            QRegularExpressionMatch attrMatch = attrRegex.match(edgeAttrsStr);
+            if (attrMatch.hasMatch()) {
+                errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(parentName, childName)));
+            } else {
+                errors.append(Error(Error::ExtraLabel, QString("Ребро %1->%2 имеет некорректные атрибуты: %3").arg(parentName, childName, edgeAttrsStr)));
             }
         }
     }
 
-    // Обработка недирективных рёбер с атрибутами
+    // Обработка ненаправленных рёбер
     QRegularExpression undirectedEdgeRegex(R"((\w+)\s*--\s*(\w+)\s*(?:\[([^\]]+)\])?\s*;)");
     QRegularExpressionMatchIterator undirectedIter = undirectedEdgeRegex.globalMatch(content);
 
@@ -161,48 +152,34 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         QRegularExpressionMatch match = undirectedIter.next();
         QString node1Name = match.captured(1);
         QString node2Name = match.captured(2);
-        QString edgeAttrsStr = match.captured(3); // Атрибуты ребра, если есть
+        QString edgeAttrsStr = match.captured(3);
 
         Node* node1 = nodeNameMap.value(node1Name);
         Node* node2 = nodeNameMap.value(node2Name);
 
         if (!node1 || !node2) {
-            //qDebug() << "Node not found for undirected edge" << node1Name << "--" << node2Name;
             continue;
         }
 
-        // Создаём двусторонние связи для недирективного ребра
         node1->children.append(node2);
         node2->children.append(node1);
         amountOfParents[node2] = amountOfParents.value(node2, 0) + 1;
         amountOfParents[node1] = amountOfParents.value(node1, 0) + 1;
-        //qDebug() << "Added undirected edge:" << node1Name << "--" << node2Name;
 
-        // Проверяем атрибуты ребра
+        // Проверяем атрибуты ребра: только label
         if (!edgeAttrsStr.isEmpty()) {
-            QRegularExpression attrRegex(R"(\s*(\w+)\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,|\s*$))");
-            QRegularExpressionMatchIterator attrIter = attrRegex.globalMatch(edgeAttrsStr);
-            while (attrIter.hasNext()) {
-                QRegularExpressionMatch attrMatch = attrIter.next();
-                QString key = attrMatch.captured(1).trimmed();
-                QString value = attrMatch.captured(2).trimmed();
-                if (value.startsWith('"') && value.endsWith('"')) {
-                    value = value.mid(1, value.length() - 2);
-                } else if (value.startsWith('\'') && value.endsWith('\'')) {
-                    value = value.mid(1, value.length() - 2);
-                }
-                //qDebug() << "Found edge attribute:" << key << "=" << value;
-                if (key.toLower() == "label") {
-                    errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(node1Name, node2Name)));
-                    //qDebug() << "Error: EdgeLabel for" << node1Name << "--" << node2Name;
-                }
+            QRegularExpression attrRegex(R"(\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)");
+            QRegularExpressionMatch attrMatch = attrRegex.match(edgeAttrsStr);
+            if (attrMatch.hasMatch()) {
+                errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(node1Name, node2Name)));
+            } else {
+                errors.append(Error(Error::ExtraLabel, QString("Ребро %1--%2 имеет некорректные атрибуты: %3").arg(node1Name, node2Name, edgeAttrsStr)));
             }
         }
     }
 
     if (hasUndirected) {
         errors.append(Error(Error::UndirectedEdge));
-        //qDebug() << "Error: UndirectedEdge";
     }
 }
 
@@ -227,17 +204,87 @@ void TreeCoverageAnalyzer::clearData(){
     isConnected = false;
     nodeIsCovered = false;
 }
+
 void TreeCoverageAnalyzer::fillHash(QList<Node*>& treeMap, QHash<Node*, int>& amountOfParents){
-    Q_UNUSED(treeMap);
-    Q_UNUSED(amountOfParents);
+    // 1. Инициализируем хэш-таблицу, устанавливая количество родителей в 0 для каждого узла
+    for (Node* node : treeMap) {
+        amountOfParents[node] = 0; // Для каждого отдельного узла заполняем кол-во родителей
+    }
+
+    // 2. Обходим все узлы и увеличиваем счетчик родителей для каждого дочернего узла
+    for (Node* node : treeMap) {
+        for (Node* child : node->children) {
+            amountOfParents[child]++; // Увеличиваем счетчик родителей у детей узла
+        }
+    }
+
+    // 3. Проверяем связанность графа, наличие узлов с несколькими родителями и наличие циклов в графе
+    treeGraphTakeErrors(amountOfParents);
 }
-void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParents, bool* isConnected, QSet<Node*>& multiParents, QSet<Node*>& rootNodes){
-    Q_UNUSED(amountOfParents);
-    Q_UNUSED(isConnected);
-    Q_UNUSED(multiParents);
-    Q_UNUSED(rootNodes);
+
+void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParents){
+    // 1. Проверяем узлы на наличие нескольких родителей и находим корневые узлы
+    for (auto it = amountOfParents.constBegin(); it != amountOfParents.constEnd(); ++it) {
+        Node* node = it.key();
+        int parentCount = it.value();
+        // Заполняем multiParents или находим корни
+        if (parentCount >= 2) {
+            multiParents.insert(node);
+            errors.append(Error(Error::MultiParents, node->name));
+        } else if (parentCount == 0) {
+            rootNodes.insert(node);
+        }
+    }
+
+
+    // 2. Если корневых узлов нет, добавляем первый узел из таблицы как корень
+    if (rootNodes.isEmpty() && !amountOfParents.isEmpty()) {
+        Node* firstNode = amountOfParents.constBegin().key();
+        rootNodes.insert(firstNode);
+    }
+
+    // 3. Проверяем цикличность и собираем посещенные узлы
+    QSet<QSet<Node*>> allVisitedNodes;
+    for (Node* root : rootNodes) {
+        QList<Node*> currentPath;
+        hasCycles(root, currentPath);
+        allVisitedNodes.insert(visitedNodes);
+        visitedNodes.clear();
+    }
+
+    // 4. Проверяем связанность графа
+    // Проверяем связанность графа
+    isConnected = !allVisitedNodes.isEmpty();
+    if (isConnected) {
+        // Проверяем наличие общих узлов
+        QSet<Node*> commonNodes;
+        bool firstSet = true;
+        for (const QSet<Node*>& visitedSet : allVisitedNodes) {
+            if (firstSet) {
+                commonNodes = visitedSet;
+                firstSet = false;
+            } else {
+                commonNodes.intersect(visitedSet);
+            }
+            if (commonNodes.isEmpty()) {
+                isConnected = false;
+                break;
+            }
+        }
+        // Проверяем, что объединение покрывает все узлы
+        if (isConnected) {
+            QSet<Node*> allNodesVisited;
+            for (const QSet<Node*>& visitedSet : allVisitedNodes) {
+                allNodesVisited.unite(visitedSet);
+            }
+            isConnected = (allNodesVisited.size() == amountOfParents.size());
+        }
+    }
+    if (!isConnected) {
+        errors.append(Error(Error::DisconnectedGraph));
+    }
 }
-void TreeCoverageAnalyzer::hasCycles(Node* node, QSet<QList<Node*>>& cycles, QSet<Node*>& visitedNodes, QList<Node*>& currentPath){
+void TreeCoverageAnalyzer::hasCycles(Node* node, QList<Node*>& currentPath){
     Q_UNUSED(node);
     Q_UNUSED(cycles);
     Q_UNUSED(visitedNodes);

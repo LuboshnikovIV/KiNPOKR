@@ -21,6 +21,10 @@ public:
     Shape shape; // форма узла
     QList<Node*> children; // список дочерних узлов
     bool visited = false; // переменная для обхода
+
+    bool operator==(const Node& other) const{
+        return name == other.name && shape == other.shape && children == other.children;
+    }
 };
 
 #endif // NODE_H
