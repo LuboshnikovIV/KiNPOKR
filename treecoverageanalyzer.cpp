@@ -320,10 +320,50 @@ void TreeCoverageAnalyzer::hasCycles(Node* node, QList<Node*>& currentPath) {
     // 5. Удалить текущий узел из currentPath при возврате из рекурсии
     currentPath.removeLast();
 }
-void TreeCoverageAnalyzer::analyzeTreeCoverage(){}
-void TreeCoverageAnalyzer::analyzeZoneWithExtraNodes(Node* node){
-    Q_UNUSED(node);
+
+void TreeCoverageAnalyzer::analyzeTreeCoverage(){
+    // Проверяем что граф соответсвует дереву
+    if(errors.isEmpty()){
+        Node* root = *rootNodes.begin(); // Так как граф соответствует дереву, понимаем что корень у дерева всего лишь один
+        analyzeZoneWithExtraNodes(root); // Вызываем анализ зоны с возможными лишними узлами
+    }
+
+    getResult(); // Формуруем результат
 }
+
+void TreeCoverageAnalyzer::analyzeZoneWithExtraNodes(Node* node){
+    // 1 Если текущий узел равен NULL, вернуться
+    if (!node) {
+        return;
+    }
+
+    // 2 Если текущий узел имеет тип Target
+    if (node->shape == Node::Target) {
+        // 2.1 Вызвать analyzeZoneWithMissingNodes для этого узла
+        analyzeZoneWithMissingNodes(node);
+        // 2.2 Вернуться из функции
+        return;
+    }
+
+    // 3 Если текущий узел имеет тип Selected и до этого не был встречен целевой узел
+    if (node->shape == Node::Selected) {
+        // 3.1 Добавить его в список extraNodes
+        extraNodes.insert(node);
+        // 3.2 Для каждого дочернего узла вызвать analyzeZoneWithRedundantNodes
+        for (Node* child : node->children) {
+            analyzeZoneWithRedundantNodes(child);
+        }
+        // 3.3 Вернуться из рекурсии
+        return;
+    }
+
+    // 4 Для каждого дочернего узла
+    for (Node* child : node->children) {
+        // 4.1 Рекурсивно обойти часть дерева до целевого узла
+        analyzeZoneWithExtraNodes(child);
+    }
+}
+
 TreeCoverageAnalyzer::CoverageStatus TreeCoverageAnalyzer::analyzeZoneWithMissingNodes(Node* node){
     Q_UNUSED(node);
     return FullyCovered;
