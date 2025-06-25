@@ -218,10 +218,6 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
     if (hasUndirected) {
         errors.append(Error(Error::UndirectedEdge));
     }
-
-    if(!errors.isEmpty()){
-    checkErrorsAfterParseDOT();
-    }
 }
 
 void TreeCoverageAnalyzer::clearData(){
@@ -261,10 +257,6 @@ void TreeCoverageAnalyzer::fillHash(QList<Node*>& treeMap, QHash<Node*, int>& am
 
     // 3. Проверяем связанность графа, наличие узлов с несколькими родителями и наличие циклов в графе
     treeGraphTakeErrors(amountOfParents);
-    // 4. Выписываем ошибки и завершаем программу если есть
-    if(!errors.isEmpty()){
-        checkErrorsAfterTreeGraphTakeErrors();
-    }
 }
 
 void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParents){
@@ -534,7 +526,7 @@ void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node, Node* selec
     // 4. Вернуться из рекурсии (автоматически)
 }
 
-QString TreeCoverageAnalyzer::getResult() const {
+void TreeCoverageAnalyzer::getResult() const {
     // Находим целевой узел
     Node* targetNode = nullptr;
     for (Node* node : treeMap) {
@@ -544,6 +536,15 @@ QString TreeCoverageAnalyzer::getResult() const {
         }
     }
 
+    // Открываем файл для записи
+    QFile file("coverage_result.txt");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream stderrStream(stderr);
+        stderrStream << "Ошибка: не удалось открыть файл coverage_result.txt для записи.\n";
+        exit(1);
+    }
+    QTextStream out(&file);
+
     // 1. Проверка наличия лишних узлов (узлы, не являющиеся потомками целевого узла)
     if (!extraNodes.isEmpty()) {
         QString extraNodeNames;
@@ -551,8 +552,10 @@ QString TreeCoverageAnalyzer::getResult() const {
             extraNodeNames += node->name + " ";
         }
         extraNodeNames = extraNodeNames.trimmed();
-        return QString("Отмеченный узел %1 не является потомком целевого узла %2.")
-            .arg(extraNodeNames, targetNode->name);
+        out << QString("Отмеченный узел %1 не является потомком целевого узла %2.\n")
+                   .arg(extraNodeNames, targetNode->name);
+        file.close();
+        return;
     }
 
     // 2. Проверка наличия избыточных узлов (redundantNodes)
@@ -567,8 +570,10 @@ QString TreeCoverageAnalyzer::getResult() const {
             redundantNodeNames += descendant->name + " ";
         }
         redundantNodeNames = redundantNodeNames.trimmed();
-        return QString("Предок %1 отмеченного узла %2 тоже отмечен, следует не отмечать детей, если отмечен их предок.")
-            .arg(ancestorNodeNames, redundantNodeNames);
+        out << QString("Предок %1 отмеченного узла %2 тоже отмечен, следует не отмечать детей, если отмечен их предок.\n")
+                   .arg(ancestorNodeNames, redundantNodeNames);
+        file.close();
+        return;
     }
 
     // 3. Проверка наличия узлов, которых не хватает для покрытия (missingNodes)
@@ -578,8 +583,10 @@ QString TreeCoverageAnalyzer::getResult() const {
             missingNodeNames += node->name + " ";
         }
         missingNodeNames = missingNodeNames.trimmed();
-        return QString("Узел %1 – не покрыт, следует отметить узлы %2 для того чтобы узел %1 стал покрытым.")
-            .arg(targetNode->name, missingNodeNames);
+        out << QString("Узел %1 – не покрыт, следует отметить узлы %2 для того чтобы узел %1 стал покрытым.\n")
+                   .arg(targetNode->name, missingNodeNames);
+        file.close();
+        return;
     }
 
     // 4. Если ошибок нет, возвращаем сообщение об успешном покрытии
@@ -592,8 +599,10 @@ QString TreeCoverageAnalyzer::getResult() const {
     selectedNodeNames = selectedNodeNames.trimmed();
     if (selectedNodeNames.isEmpty()) {
         // Если нет отмеченных узлов, но покрытие полное (например, целевой узел без детей)
-        return QString("Целевой узел %1 покрыт.").arg(targetNode->name);
+        out << QString("Целевой узел %1 покрыт.\n").arg(targetNode->name);
+    } else {
+        out << QString("Помеченные узлы %1 покрывают вышележащий узел %2.\n")
+                   .arg(selectedNodeNames, targetNode->name);
     }
-    return QString("Помеченные узлы %1 покрывают вышележащий узел %2.")
-        .arg(selectedNodeNames, targetNode->name);
+    file.close();
 }

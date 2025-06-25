@@ -36,7 +36,7 @@ public:
     void analyzeZoneWithExtraNodes(Node* node);
     CoverageStatus analyzeZoneWithMissingNodes(Node* node);
     void analyzeZoneWithRedundantNodes(Node* node, Node* selectedNode);
-    QString getResult() const;
+    void getResult() const;
 
     QSet<Node*> rootNodes;
     QSet<QList<Node*>> cycles;
