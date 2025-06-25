@@ -37,7 +37,7 @@ public:
     TreeCoverageAnalyzer();
 
     /*!
-    * \brief деконструктор по умолчанию для класса TreeCoverageAnalyzer
+    * \brief деструктор по умолчанию для класса TreeCoverageAnalyzer
     */
     ~TreeCoverageAnalyzer();
 
@@ -64,6 +64,12 @@ public:
     * \param[out] filename - имя файла с которым будет создоваться вывод об ошибках
     */
     void checkErrorsAfterParseDOT();
+
+    /*!
+    * \brief Функция проверяет найденные ошибки после валидации графа
+    * \param[out] filename - имя файла с которым будет создоваться вывод об ошибках
+    */
+    void checkErrorsAfterTreeGraphTakeErrors();
 
     /*!
     * \brief Преобразует файл написанный на языке DOT в данные о графе-дереве

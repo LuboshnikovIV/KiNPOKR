@@ -1,3 +1,8 @@
+/*!
+* \file
+* \brief Файл содержит реализацию функций класса Error.
+*/
+
 #include "error.h"
 #include <QDebug>
 

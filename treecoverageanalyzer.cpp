@@ -334,13 +334,16 @@ void TreeCoverageAnalyzer::hasCycles(Node* node, QList<Node*>& currentPath) {
         int cycleStartIndex = currentPath.indexOf(node);
         // 2.2. Сохранить цикл (часть пути от начала цикла до конца currentPath)
         QList<Node*> cycle;
+        QString cycleNames;
         for (int i = cycleStartIndex; i < currentPath.size(); ++i) {
             cycle.append(currentPath[i]);
+            cycleNames += currentPath[i]->name + " ";
         }
         cycle.append(node); // Завершаем цикл
+        cycleNames += node->name;
         cycles.insert(cycle);
-        if(!errors.contains(Error::Cycle)){
-            errors.append(Error(Error::Cycle, QString("В графе присутствует цикл %1").arg(node->name)));
+        if (!errors.contains(Error(Error::Cycle))) {
+            errors.append(Error(Error::Cycle, QString("Граф не является деревом. В графе присутствует цикл %1").arg(cycleNames.trimmed())));
         }
         return;
     }
