@@ -88,7 +88,7 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
                 // Если label отсутствует, ничего не делаем
             } else {
                 QString labelValue = attrMatch.captured(2);
-                if (labelValue.startsWith('"') && labelValue.endsWith('"')) {
+                if (labelValue.startsWith('"') && shapeValue.endsWith('"')) {
                     labelValue = labelValue.mid(1, labelValue.length() - 2);
                 } else if (labelValue.startsWith('\'') && labelValue.endsWith('\'')) {
                     labelValue = labelValue.mid(1, labelValue.length() - 2);
@@ -98,7 +98,7 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         } else {
             // Если строка атрибутов не соответствует ожидаемому формату
             for (const QString& name : nodes) {
-                errors.append(Error(Error::ExtraLabel, QString("%1 имеет некорректные атрибуты: %2").arg(name.trimmed(), attributesStr)));
+                errors.append(Error(Error::ExtraLabel, QString("для узла %1: %2").arg(name.trimmed(), attributesStr)));
             }
             continue;
         }
@@ -128,7 +128,7 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         // Проверяем наличие label (ExtraLabel для узлов)
         if (attrMap.contains("label")) {
             for (const QString& name : nodes) {
-                errors.append(Error(Error::ExtraLabel, QString("%1 label=\"%2\"").arg(name.trimmed(), attrMap["label"])));
+                errors.append(Error(Error::ExtraLabel, QString("для узла %1: label=\"%2\"").arg(name.trimmed(), attrMap["label"])));
             }
         }
 
@@ -175,7 +175,7 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             if (attrMatch.hasMatch()) {
                 errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(parentName, childName)));
             } else {
-                errors.append(Error(Error::ExtraLabel, QString("Ребро %1->%2 имеет некорректные атрибуты: %3").arg(parentName, childName, edgeAttrsStr)));
+                errors.append(Error(Error::ExtraLabel, QString("для ребра %1->%2: %3").arg(parentName, childName, edgeAttrsStr)));
             }
         }
     }
@@ -211,7 +211,7 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             if (attrMatch.hasMatch()) {
                 errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(node1Name, node2Name)));
             } else {
-                errors.append(Error(Error::ExtraLabel, QString("Ребро %1--%2 имеет некорректные атрибуты: %3").arg(node1Name, node2Name, edgeAttrsStr)));
+                errors.append(Error(Error::ExtraLabel, QString("для ребра %1--%2: %3").arg(node1Name, node2Name, edgeAttrsStr)));
             }
         }
     }
