@@ -30,7 +30,7 @@ public:
     void analyzeTreeCoverage();
     void analyzeZoneWithExtraNodes(Node* node);
     CoverageStatus analyzeZoneWithMissingNodes(Node* node);
-    void analyzeZoneWithRedundantNodes(Node* node);
+    void analyzeZoneWithRedundantNodes(Node* node, Node* selectedNode);
     QString getResult() const;
 
     QSet<Node*> rootNodes;

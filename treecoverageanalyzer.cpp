@@ -351,7 +351,7 @@ void TreeCoverageAnalyzer::analyzeZoneWithExtraNodes(Node* node){
         extraNodes.insert(node);
         // 3.2 Для каждого дочернего узла вызвать analyzeZoneWithRedundantNodes
         for (Node* child : node->children) {
-            analyzeZoneWithRedundantNodes(child);
+            analyzeZoneWithRedundantNodes(child, node);
         }
         // 3.3 Вернуться из рекурсии
         return;
@@ -399,7 +399,7 @@ TreeCoverageAnalyzer::CoverageStatus TreeCoverageAnalyzer::analyzeZoneWithMissin
     else if (node->shape == Node::Shape::Selected) {
         // 3.1. Для всех потомков вызвать analyzeZoneWithRedundantNodes
         for (Node* child : node->children) {
-            analyzeZoneWithRedundantNodes(child);
+            analyzeZoneWithRedundantNodes(child, node);
         }
         // 3.2. Вернуть FullyCovered
         return FullyCovered;
@@ -462,9 +462,33 @@ TreeCoverageAnalyzer::CoverageStatus TreeCoverageAnalyzer::analyzeZoneWithMissin
     }
 }
 
-void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node){
-    Q_UNUSED(node);
+void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node, Node* selectedNode) {
+    // 1. Если текущий узел равен NULL, вернуться
+    if (!node) {
+        return;
+    }
+
+    // 2. Если узел имеет тип Target
+    if (node->shape == Node::Target) {
+        // 2.1. Для каждого дочернего узла текущего узла рекурсивно вызвать analyzeZoneWithMissingNodes
+        for (Node* child : node->children) {
+            analyzeZoneWithMissingNodes(child);
+        }
+    } else {
+        // 3. Иначе
+        // 3.1. Если узел имеет тип Selected
+        if (node->shape == Node::Selected) {
+            // 3.1.1. Добавить его в список redundantNodes как пару (selectedNode, node)
+            redundantNodes.insert(qMakePair(selectedNode, node));
+        }
+        // 3.2. Для каждого дочернего узла вызвать analyzeZoneWithRedundantNodes
+        for (Node* child : node->children) {
+            analyzeZoneWithRedundantNodes(child, selectedNode);
+        }
+    }
+    // 4. Вернуться из рекурсии (автоматически)
 }
+
 QString TreeCoverageAnalyzer::getResult() const{
     return QString("Hi");
 }

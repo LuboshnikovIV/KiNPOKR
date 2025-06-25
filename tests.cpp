@@ -1845,12 +1845,14 @@ void Tests::analyzeZoneWithRedundant_test(){
     QFETCH(Node*, node);
     QFETCH(REDUNDANT_NODES, expectedRedundantNodes);
     QFETCH(REDUNDANT_NODES, predefinedRedundantNodes);
+    QFETCH(Node*, selectedNode);
+
     TreeCoverageAnalyzer analyzer;
 
     analyzer.redundantNodes = predefinedRedundantNodes;
 
     // Вызов метода
-    analyzer.analyzeZoneWithRedundantNodes(node);
+    analyzer.analyzeZoneWithRedundantNodes(node, selectedNode);
 
     // Выводом разницы при провале
     if (!QTest::qCompare(analyzer.redundantNodes, expectedRedundantNodes, "analyzer.redundantNodes", "expectedRedundantNodes", __FILE__, __LINE__)) {
@@ -1868,6 +1870,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
     QTest::addColumn<Node*>("node");
     QTest::addColumn<REDUNDANT_NODES>("expectedRedundantNodes");
     QTest::addColumn<REDUNDANT_NODES>("predefinedRedundantNodes");
+    QTest::addColumn<Node*>("selectedNode");
 
     // Тест 1: Один узел, нет избыточных
     {
@@ -1876,7 +1879,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("NoRedundant") << amountOfParents
                                      << a
                                      << QSet<QPair<Node*, Node*>>()
-                                     << QSet<QPair<Node*, Node*>>();
+                                     << QSet<QPair<Node*, Node*>>()
+                                     << a;
     }
 
     // Тест 2: Один избыточный узел после отмеченного
@@ -1892,7 +1896,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("OneRedundantNode") << amountOfParents
                                           << c
                                           << expectedRedundantNodes
-                                          << QSet<QPair<Node*, Node*>>();
+                                          << QSet<QPair<Node*, Node*>>()
+                                          << b;
     }
 
     // Тест 3: Множество избыточных узлов после отмеченного
@@ -1910,7 +1915,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("MultiRedundantNodes") << amountOfParents
                                              << c
                                              << expectedRedundantNodes
-                                             << QSet<QPair<Node*, Node*>>();
+                                             << QSet<QPair<Node*, Node*>>()
+                                             << b;
     }
 
     // Тест 4: Избыточные узлы находятся в разных ветках
@@ -1932,7 +1938,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("RedundantNodesInDiffrentBranches") << amountOfParents
                                                           << e
                                                           << expectedRedundantNodes
-                                                          << predefinedRedundantNodes;
+                                                          << predefinedRedundantNodes
+                                                          << c;
     }
 
     // Тест 5: Зона с избыточными узлами есть, но избыточных узлов нет
@@ -1948,7 +1955,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("ZoneWithRedundantIsThereButNotRedundantNodes") << amountOfParents
                                                                       << c
                                                                       << QSet<QPair<Node*, Node*>>()
-                                                                      << QSet<QPair<Node*, Node*>>();
+                                                                      << QSet<QPair<Node*, Node*>>()
+                                                                      << b;
     }
 
     // Тест 6: Избыточный узел имеет высокую вложенность
@@ -1970,7 +1978,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("RedundantNodesHasHightNesting") << amountOfParents
                                                        << c
                                                        << expectedRedundantNodes
-                                                       << QSet<QPair<Node*, Node*>>();
+                                                       << QSet<QPair<Node*, Node*>>()
+                                                       << b;
     }
 
     // Тест 7: Не во всех ветках есть избыточный узел
@@ -1981,7 +1990,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         Node* c = createNode("c", Node::Shape::Base);
         Node* d = createNode("d", Node::Shape::Base);
         Node* e = createNode("e", Node::Shape::Base);
-        Node* f = createNode("f", Node::Shape::Selected);
+        Node* f = createNode("f", Node::Shape::Base);
         addEdge(a, b, amountOfParents);
         addEdge(a, e, amountOfParents);
         addEdge(b, c, amountOfParents);
@@ -1994,7 +2003,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("NotInAllBranchesHaveRedundantNode") << amountOfParents
                                                            << f
                                                            << expectedRedundantNodes
-                                                           << predefinedRedundantNodes;
+                                                           << predefinedRedundantNodes
+                                                           << e;
     }
 
     // Тест 8: Избыточный узел до целевого
@@ -2012,7 +2022,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("RedundantNodeBeforeTargetNode") << amountOfParents
                                                        << r
                                                        << expectedRedundantNodes
-                                                       << QSet<QPair<Node*, Node*>>();
+                                                       << QSet<QPair<Node*, Node*>>()
+                                                       << e;
     }
 
     // Тест 9: Избыточный узел не находится в ветке с целевым
@@ -2034,7 +2045,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("RedundantNodeNotLocateInBranchWithTarget") << amountOfParents
                                                                   << d
                                                                   << expectedRedundantNodes
-                                                                  << predefinedRedundantNodes;
+                                                                  << predefinedRedundantNodes
+                                                                  << e;
     }
 
     // Тест 10: Комбинированное расположение избыточных узлов
@@ -2058,7 +2070,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("MixedLocateRedundantNodes") << amountOfParents
                                                    << g
                                                    << expectedRedundantNodes
-                                                   << predefinedRedundantNodes;
+                                                   << predefinedRedundantNodes
+                                                   << b;
     }
 
     // Тест 11: Сложный граф с высокой вложенностью
@@ -2096,7 +2109,8 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("DifficultGraphWithHightNesting") << amountOfParents
                                                         << d
                                                         << expectedRedundantNodes
-                                                        << predefinedRedundantNodes;
+                                                        << predefinedRedundantNodes
+                                                        << c;
     }
 
     // Тест 12: Все узлы в графе кроме корня отмечены
@@ -2144,6 +2158,7 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         QTest::newRow("AllNodesSelectedExceptTarget") << amountOfParents
                                                       << d
                                                       << expectedRedundantNodes
-                                                      << predefinedRedundantNodes;
+                                                      << predefinedRedundantNodes
+                                                      << a;
     }
 }
