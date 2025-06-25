@@ -1,3 +1,7 @@
+/*!
+* \file
+* \brief Файл содержит реализацию функций, использующихся в ходе работы программы GetConclusionAboutNodeCoverage.
+*/
 #include "treecoverageanalyzer.h"
 
 TreeCoverageAnalyzer::TreeCoverageAnalyzer() {
@@ -8,7 +12,6 @@ TreeCoverageAnalyzer::~TreeCoverageAnalyzer() {
     clearData();
 }
 
-// Вспомогательная функция для записи ошибок в файл и завершения программы
 void TreeCoverageAnalyzer::writeErrorsToFileAndExit(const QString& filename) {
     if (errors.isEmpty()) {
         return; // Если ошибок нет, продолжаем выполнение
@@ -35,12 +38,10 @@ void TreeCoverageAnalyzer::writeErrorsToFileAndExit(const QString& filename) {
     exit(1); // Завершаем программу
 }
 
-// Проверка ошибок после parseDOT
 void TreeCoverageAnalyzer::checkErrorsAfterParseDOT() {
     writeErrorsToFileAndExit("parse_errors.txt");
 }
 
-// Проверка ошибок после treeGraphTakeErrors
 void TreeCoverageAnalyzer::checkErrorsAfterTreeGraphTakeErrors() {
     writeErrorsToFileAndExit("graph_errors.txt");
 }
@@ -239,7 +240,6 @@ void TreeCoverageAnalyzer::clearData(){
 
     // Сбрасываем флаги
     isConnected = false;
-    nodeIsCovered = false;
 }
 
 void TreeCoverageAnalyzer::fillHash(QList<Node*>& treeMap, QHash<Node*, int>& amountOfParents){

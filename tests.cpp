@@ -1,3 +1,8 @@
+/*!
+ * \file
+ * \brief Файл содержит реализацию методов класса Tests для тестирования функций программы GetConclusionAboutNodeCoverage.
+ */
+
 #include "tests.h"
 #include <QString>
 #define NODE_PARENT_HASH QHash<Node*, int>
@@ -14,10 +19,10 @@ void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>&
         extraExpectedNames += n->name + " ";
     }
     if (!extraInActual.isEmpty()) {
-        qDebug() << "Лишние узлы: " << extraActualNames;
+        qDebug() << "Extra lists in actual: " << extraActualNames;
     }
     if (!extraInExpected.isEmpty()) {
-        qDebug() << "Пропущенные узлы: " << extraExpectedNames;
+        qDebug() << "Missing lists in actual: " << extraExpectedNames;
     }
 }
 
@@ -127,17 +132,6 @@ void Tests::parseDOT_test(){
                     QFAIL(("Обнаружен нулевой указатель в treeMap или expectedTreeMap на индексе " + QString::number(i)).toUtf8());
                 }
                 if (!compareNodes(analyzer.treeMap[i], expectedTreeMap[i], visited)) {
-                    // Отладка
-                    /*qDebug() << "Actual name:" << analyzer.treeMap[i]->name << ", Expected name:" << expectedTreeMap[i]->name;
-                    qDebug() << "Actual shape:" << (int)analyzer.treeMap[i]->shape << ", Expected shape:" << (int)expectedTreeMap[i]->shape;
-                    QString actualChildrenNames, expectedChildrenNames;
-                    for (Node* child : analyzer.treeMap[i]->children) {
-                        actualChildrenNames += child->name + " ";
-                    }
-                    for (Node* child : expectedTreeMap[i]->children) {
-                        expectedChildrenNames += child->name + " ";
-                    }
-                    qDebug() << "Actual children:" << actualChildrenNames.trimmed() << ", Expected children:" << expectedChildrenNames.trimmed();*/
                     QFAIL(("Узлы различаются на индексе " + QString::number(i)).toUtf8());
                 }
                 visited.clear(); // Очищаем visited для следующей пары узлов
