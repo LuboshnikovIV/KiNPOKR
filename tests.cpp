@@ -367,6 +367,9 @@ void Tests::treeGraphTakeErrors_test(){
     analyzer.treeGraphTakeErrors(amountOfParents);
 
     // Сравниваем заполнение контейнеров
+    if (!QTest::qCompare(analyzer.rootNodes, expectedRootNodes, "analyzer.rootNodes", "expectedRootNodes", __FILE__, __LINE__)) {
+        printNodeSetDifference(analyzer.rootNodes, expectedRootNodes, "rootNodes");
+    }
     if (!QTest::qCompare(analyzer.multiParents, expectedMultiParents, "analyzer.multiParents", "expectedMultiParents", __FILE__, __LINE__)) {
         printNodeSetDifference(analyzer.multiParents, expectedMultiParents, "multiParents");
     }
@@ -391,6 +394,7 @@ void Tests::treeGraphTakeErrors_test_data(){
     {
         NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
+        amountOfParents[a] = 0;
         QSet<Node*> expectedRootNodes;
         expectedRootNodes << a;
         QTest::newRow("GraphConsistOfOneNode") << amountOfParents
@@ -407,6 +411,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
         Node* d = createNode("d", Node::Shape::Base);
+        amountOfParents[a] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(a, c, amountOfParents);
         addEdge(b, d, amountOfParents);
@@ -431,6 +436,8 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
         Node* g = createNode("g", Node::Shape::Base);
+        amountOfParents[a] = 0;
+        amountOfParents[c] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(c, g, amountOfParents);
         QSet<Node*> rootNodes;
@@ -452,6 +459,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* c = createNode("c", Node::Shape::Base);
         Node* d = createNode("d", Node::Shape::Base);
         Node* k = createNode("k", Node::Shape::Base);
+        amountOfParents[a] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(a, d, amountOfParents);
         addEdge(a, c, amountOfParents);
@@ -463,7 +471,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << d << k;
         QList<Error> expectedErrors;
-        expectedErrors << Error(Error::MultiParents);
+        expectedErrors << Error(Error::MultiParents) << Error(Error::MultiParents);
         QTest::newRow("MultiNodesHaveMultiParents") << amountOfParents
                                                     << rootNodes
                                                     << true
@@ -477,9 +485,10 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
-        addEdge(a, b, amountOfParents);
-        addEdge(b, c, amountOfParents);
+        amountOfParents[a] = 0;
         addEdge(c, a, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(a, b, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
         QList<Error> expectedErrors;
@@ -497,9 +506,11 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c", Node::Shape::Base);
+        amountOfParents[a] = 0;
+        amountOfParents[c] = 0;
         addEdge(a, b, amountOfParents);
         QSet<Node*> rootNodes;
-        rootNodes << a;
+        rootNodes << a << c;
         QList<Error> expectedErrors;
         expectedErrors << Error(Error::DisconnectedGraph);
         QTest::newRow("GraphWithNodeWithoutParents") << amountOfParents
@@ -515,6 +526,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* a = createNode("a", Node::Shape::Target);
         Node* b = createNode("b", Node::Shape::Selected);
         Node* c = createNode("c", Node::Shape::Base);
+        amountOfParents[a] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(a, c, amountOfParents);
         addEdge(b, c, amountOfParents);
@@ -524,7 +536,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << b << c;
         QList<Error> expectedErrors;
-        expectedErrors << Error(Error::MultiParents) << Error(Error::Cycle);
+        expectedErrors << Error(Error::MultiParents) << Error(Error::MultiParents) << Error(Error::Cycle);
         QTest::newRow("NonrootNodesHaveTwoParents") << amountOfParents
                                                     << rootNodes
                                                     << true
@@ -536,6 +548,7 @@ void Tests::treeGraphTakeErrors_test_data(){
     {
         NODE_PARENT_HASH amountOfParents;
         Node* a = createNode("a", Node::Shape::Target);
+        amountOfParents[a] = 0;
         addEdge(a, a, amountOfParents);
         QSet<Node*> rootNodes;
         rootNodes << a;
@@ -556,6 +569,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* c = createNode("c", Node::Shape::Base);
         Node* d = createNode("d", Node::Shape::Base);
         Node* e = createNode("e", Node::Shape::Base);
+        amountOfParents[a] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(c, d, amountOfParents);
         addEdge(d, e, amountOfParents);
@@ -578,6 +592,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
         Node* d = createNode("d", Node::Shape::Base);
+        amountOfParents[a] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(a, c, amountOfParents);
         addEdge(a, d, amountOfParents);
@@ -607,6 +622,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* g = createNode("g", Node::Shape::Base);
         Node* r = createNode("r", Node::Shape::Base);
         Node* l = createNode("l", Node::Shape::Base);
+        amountOfParents[a] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(a, l, amountOfParents);
         addEdge(b, c, amountOfParents);
@@ -623,7 +639,7 @@ void Tests::treeGraphTakeErrors_test_data(){
         QSet<Node*> expectedMultiParents;
         expectedMultiParents << c << g << r << l;
         QList<Error> expectedErrors;
-        expectedErrors << Error(Error::MultiParents);
+        expectedErrors << Error(Error::MultiParents) << Error(Error::MultiParents) << Error(Error::MultiParents) << Error(Error::MultiParents);
         QTest::newRow("GraphWithHightNestingAndMultiParents") << amountOfParents
                                                               << rootNodes
                                                               << true
@@ -638,6 +654,8 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* b = createNode("b", Node::Shape::Base);
         Node* c = createNode("c", Node::Shape::Base);
         Node* d = createNode("d", Node::Shape::Base);
+        amountOfParents[a] = 0;
+        amountOfParents[c] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(c, b, amountOfParents);
         addEdge(b, d, amountOfParents);
@@ -664,6 +682,8 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* e = createNode("e", Node::Shape::Base);
         Node* f = createNode("f", Node::Shape::Base);
         Node* g = createNode("g", Node::Shape::Base);
+        amountOfParents[a] = 0;
+        amountOfParents[c] = 0;
         addEdge(a, b, amountOfParents);
         addEdge(c, b, amountOfParents);
         addEdge(b, d, amountOfParents);
@@ -692,9 +712,10 @@ void Tests::treeGraphTakeErrors_test_data(){
         Node* d = createNode("d", Node::Shape::Base);
         Node* e = createNode("e", Node::Shape::Base);
         Node* f = createNode("f", Node::Shape::Base);
-        addEdge(a, b, amountOfParents);
-        addEdge(b, c, amountOfParents);
+        amountOfParents[a] = 0;
         addEdge(c, a, amountOfParents);
+        addEdge(b, c, amountOfParents);
+        addEdge(a, b, amountOfParents);
         addEdge(d, e, amountOfParents);
         addEdge(e, f, amountOfParents);
         addEdge(f, d, amountOfParents);
