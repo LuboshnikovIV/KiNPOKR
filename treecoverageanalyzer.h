@@ -9,6 +9,8 @@
 #include "Node.h"
 #include "Error.h"
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
 
 class TreeCoverageAnalyzer
 {
@@ -22,6 +24,9 @@ public:
     TreeCoverageAnalyzer();
     ~TreeCoverageAnalyzer();
 
+    void writeErrorsToFileAndExit(const QString& filename);
+    void checkErrorsAfterParseDOT();
+    void checkErrorsAfterTreeGraphTakeErrors();
     void parseDOT(const QString& content);
     void clearData();
     void fillHash(QList<Node*>& treeMap, QHash<Node*, int>& amountOfParents);

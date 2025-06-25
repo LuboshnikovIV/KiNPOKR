@@ -8,6 +8,43 @@ TreeCoverageAnalyzer::~TreeCoverageAnalyzer() {
     clearData();
 }
 
+// Вспомогательная функция для записи ошибок в файл и завершения программы
+void TreeCoverageAnalyzer::writeErrorsToFileAndExit(const QString& filename) {
+    if (errors.isEmpty()) {
+        return; // Если ошибок нет, продолжаем выполнение
+    }
+
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        // Если не удалось открыть файл, выводим в консоль и завершаем
+        QTextStream stderrStream(stderr);
+        stderrStream << "Ошибка: не удалось открыть файл " << filename << " для записи.\n";
+        for (const Error& error : errors) {
+            stderrStream << "Ошибка: " << error.errMessage() << "\n";
+        }
+        exit(1);
+    }
+
+    QTextStream out(&file);
+    out << "Отчет об ошибках:\n";
+    for (const Error& error : errors) {
+        out << "Ошибка: " << error.errMessage() << "\n";
+    }
+    file.close();
+
+    exit(1); // Завершаем программу
+}
+
+// Проверка ошибок после parseDOT
+void TreeCoverageAnalyzer::checkErrorsAfterParseDOT() {
+    writeErrorsToFileAndExit("parse_errors.txt");
+}
+
+// Проверка ошибок после treeGraphTakeErrors
+void TreeCoverageAnalyzer::checkErrorsAfterTreeGraphTakeErrors() {
+    writeErrorsToFileAndExit("graph_errors.txt");
+}
+
 void TreeCoverageAnalyzer::parseDOT(const QString& content) {
     clearData(); // Убеждаемся, что данные очищаются перед парсингом
 
@@ -181,6 +218,10 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
     if (hasUndirected) {
         errors.append(Error(Error::UndirectedEdge));
     }
+
+    if(!errors.isEmpty()){
+    checkErrorsAfterParseDOT();
+    }
 }
 
 void TreeCoverageAnalyzer::clearData(){
@@ -220,6 +261,10 @@ void TreeCoverageAnalyzer::fillHash(QList<Node*>& treeMap, QHash<Node*, int>& am
 
     // 3. Проверяем связанность графа, наличие узлов с несколькими родителями и наличие циклов в графе
     treeGraphTakeErrors(amountOfParents);
+    // 4. Выписываем ошибки и завершаем программу если есть
+    if(!errors.isEmpty()){
+        checkErrorsAfterTreeGraphTakeErrors();
+    }
 }
 
 void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParents){
