@@ -1440,7 +1440,7 @@ void Tests::analyzeZoneWithMissingNodes_test_data(){
         addEdge(a, b, amountOfParents);
         addEdge(a, c, amountOfParents);
         addEdge(b, d, amountOfParents);
-        addEdge(d, e, amountOfParents);
+        addEdge(b, e, amountOfParents);
         addEdge(c, f, amountOfParents);
         addEdge(c, g, amountOfParents);
         QSet<Node*> expectedMissingNodes;

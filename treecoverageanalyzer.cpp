@@ -364,10 +364,104 @@ void TreeCoverageAnalyzer::analyzeZoneWithExtraNodes(Node* node){
     }
 }
 
-TreeCoverageAnalyzer::CoverageStatus TreeCoverageAnalyzer::analyzeZoneWithMissingNodes(Node* node){
-    Q_UNUSED(node);
-    return FullyCovered;
+TreeCoverageAnalyzer::CoverageStatus TreeCoverageAnalyzer::analyzeZoneWithMissingNodes(Node* node) {
+    // 1. Если текущий узел равен NULL, вернуть NotCovered
+    if (!node) {
+        return NotCovered;
+    }
+
+    // 2. Если узел имеет тип Target
+    if (node->shape == Node::Shape::Target) {
+        // Если у целевого узла нет детей, возвращаем PartiallyCovered
+        if (node->children.isEmpty()) {
+            return PartiallyCovered;
+        }
+
+        // 2.1. Рекурсивно проверить всех детей
+        bool allChildrenFullyCovered = true;
+        for (Node* child : node->children) {
+            CoverageStatus childStatus = analyzeZoneWithMissingNodes(child);
+            // 2.2. Если хотя бы один ребенок не FullyCovered, устанавливаем флаг в false
+            if (childStatus != FullyCovered) {
+                allChildrenFullyCovered = false;
+            }
+        }
+
+        // 2.2.1. Если все дети FullyCovered, вернуть FullyCovered
+        if (allChildrenFullyCovered) {
+            return FullyCovered;
+        }
+        // 2.3. Иначе вернуть PartiallyCovered
+        return PartiallyCovered;
+    }
+
+    // 3. Если узел имеет тип Selected
+    else if (node->shape == Node::Shape::Selected) {
+        // 3.1. Для всех потомков вызвать analyzeZoneWithRedundantNodes
+        for (Node* child : node->children) {
+            analyzeZoneWithRedundantNodes(child);
+        }
+        // 3.2. Вернуть FullyCovered
+        return FullyCovered;
+    }
+
+    // 4. Иначе (узел типа Base)
+    else {
+        // Если узел не имеет детей, он считается NotCovered, и добавляем его в missingNodes
+        if (node->children.isEmpty()) {
+            missingNodes.insert(node);
+            return NotCovered;
+        }
+
+        bool allFullyCovered = true;
+        bool allNotCovered = true;
+        bool hasFullyOrPartiallyCovered = false;
+        QSet<Node*> notCoveredChildren;
+
+        // 4.1. Проверяем всех детей
+        for (Node* child : node->children) {
+            CoverageStatus childStatus = analyzeZoneWithMissingNodes(child);
+            if (childStatus == FullyCovered) {
+                allNotCovered = false;
+                hasFullyOrPartiallyCovered = true;
+            } else if (childStatus == PartiallyCovered) {
+                allFullyCovered = false;
+                allNotCovered = false;
+                hasFullyOrPartiallyCovered = true;
+            } else if (childStatus == NotCovered) {
+                allFullyCovered = false;
+                notCoveredChildren.insert(child);
+            }
+        }
+
+        // 4.1. Если все дети FullyCovered
+        if (allFullyCovered) {
+            return FullyCovered;
+        }
+
+        // 4.2. Если все дети NotCovered
+        if (allNotCovered) {
+            // Очищаем missingNodes от детей, добавляем текущий узел
+            for (Node* child : node->children) {
+                missingNodes.remove(child);
+            }
+            missingNodes.insert(node);
+            return NotCovered;
+        }
+
+        // 4.3. Если хотя бы один из детей FullyCovered или PartiallyCovered
+        if (hasFullyOrPartiallyCovered) {
+            // 4.3.1. Добавить всех детей с NotCovered в missingNodes
+            missingNodes.unite(notCoveredChildren);
+            // 4.3.2. Вернуть PartiallyCovered
+            return PartiallyCovered;
+        }
+
+        // Этот случай не должен произойти, но для полноты возвращаем NotCovered
+        return NotCovered;
+    }
 }
+
 void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node){
     Q_UNUSED(node);
 }
