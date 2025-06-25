@@ -284,11 +284,41 @@ void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParent
         errors.append(Error(Error::DisconnectedGraph));
     }
 }
-void TreeCoverageAnalyzer::hasCycles(Node* node, QList<Node*>& currentPath){
-    Q_UNUSED(node);
-    Q_UNUSED(cycles);
-    Q_UNUSED(visitedNodes);
-    Q_UNUSED(currentPath);
+
+void TreeCoverageAnalyzer::hasCycles(Node* node, QList<Node*>& currentPath) {
+    // 1. Если текущий узел NULL, вернуться
+    if (!node) {
+        return;
+    }
+
+    // 2. Если узел уже находится в currentPath, значит найден цикл
+    if (currentPath.contains(node)) {
+        // 2.1. Извлечь индекс начала цикла
+        int cycleStartIndex = currentPath.indexOf(node);
+        // 2.2. Сохранить цикл (часть пути от начала цикла до конца currentPath)
+        QList<Node*> cycle;
+        for (int i = cycleStartIndex; i < currentPath.size(); ++i) {
+            cycle.append(currentPath[i]);
+        }
+        cycle.append(node); // Завершаем цикл
+        cycles.insert(cycle);
+        if(!errors.contains(Error::Cycle)){
+            errors.append(Error(Error::Cycle, QString("В графе присутствует цикл %1").arg(node->name)));
+        }
+        return;
+    }
+
+    // 3. Добавить текущий узел в currentPath и visitedNodes
+    currentPath.append(node);
+    visitedNodes.insert(node);
+
+    // 4. Для каждого дочернего узла вызвать hasCycles
+    for (Node* child : node->children) {
+        hasCycles(child, currentPath);
+    }
+
+    // 5. Удалить текущий узел из currentPath при возврате из рекурсии
+    currentPath.removeLast();
 }
 void TreeCoverageAnalyzer::analyzeTreeCoverage(){}
 void TreeCoverageAnalyzer::analyzeZoneWithExtraNodes(Node* node){

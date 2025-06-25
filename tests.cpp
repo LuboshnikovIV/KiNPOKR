@@ -781,7 +781,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{a, b, c};
+        expectedCycles << QList<Node*>{a, b, c, a};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c;
         QList<Error> expectedError;
@@ -826,7 +826,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{a};
+        expectedCycles << QList<Node*>{a, a};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a;
         QList<Error> expectedError;
@@ -860,7 +860,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{b, d, e} << QList<Node*>{c, f, g} << QList<Node*>{e, g};
+        expectedCycles << QList<Node*>{b, d, e, b} << QList<Node*>{c, f, g, c} << QList<Node*>{g, c, f, g};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c << d << e << f << g;
         QList<Error> expectedError;
@@ -886,7 +886,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{b, c, d};
+        expectedCycles << QList<Node*>{b, c, d, b};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c << d;
         QList<Error> expectedError;
@@ -912,7 +912,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{a, b, c};
+        expectedCycles << QList<Node*>{a, b, c, a};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c << d;
         QList<Error> expectedError;
@@ -944,7 +944,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{b, c, e, f, g};
+        expectedCycles << QList<Node*>{b, c, d, e, f, g, b};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c << d << e << f << g;
         QList<Error> expectedError;
@@ -974,7 +974,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{b, c} << QList<Node*>{b, d} << QList<Node*>{b, e};
+        expectedCycles << QList<Node*>{b, c, b} << QList<Node*>{b, d, b} << QList<Node*>{b, e, b};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c << d << e;
         QList<Error> expectedError;
@@ -1004,7 +1004,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{a, b, c};
+        expectedCycles << QList<Node*>{a, b, c, a};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c;
         QList<Error> expectedError;
@@ -1038,7 +1038,7 @@ void Tests::hasCycles_test_data(){
         QSet<Node*> rootNodes;
         rootNodes << a;
         QSet<QList<Node*>> expectedCycles;
-        expectedCycles << QList<Node*>{b, c, d};
+        expectedCycles << QList<Node*>{b, c, d, b};
         QSet<Node*> expectedVisitedNodes;
         expectedVisitedNodes << a << b << c << d;
         QList<Error> expectedError;
