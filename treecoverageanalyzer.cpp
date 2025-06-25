@@ -489,6 +489,66 @@ void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node, Node* selec
     // 4. Вернуться из рекурсии (автоматически)
 }
 
-QString TreeCoverageAnalyzer::getResult() const{
-    return QString("Hi");
+QString TreeCoverageAnalyzer::getResult() const {
+    // Находим целевой узел
+    Node* targetNode = nullptr;
+    for (Node* node : treeMap) {
+        if (node->shape == Node::Target) {
+            targetNode = node;
+            break;
+        }
+    }
+
+    // 1. Проверка наличия лишних узлов (узлы, не являющиеся потомками целевого узла)
+    if (!extraNodes.isEmpty()) {
+        QString extraNodeNames;
+        for (Node* node : extraNodes) {
+            extraNodeNames += node->name + " ";
+        }
+        extraNodeNames = extraNodeNames.trimmed();
+        return QString("Отмеченный узел %1 не является потомком целевого узла %2.")
+            .arg(extraNodeNames, targetNode->name);
+    }
+
+    // 2. Проверка наличия избыточных узлов (redundantNodes)
+    if (!redundantNodes.isEmpty()) {
+        QString ancestorNodeNames;
+        QString redundantNodeNames;
+        for (const QPair<Node*, Node*>& pair : redundantNodes) {
+            // Проверяем, что первый узел в паре является предком второго
+            Node* ancestor = pair.first;
+            Node* descendant = pair.second;
+            ancestorNodeNames += ancestor->name + " ";
+            redundantNodeNames += descendant->name + " ";
+        }
+        redundantNodeNames = redundantNodeNames.trimmed();
+        return QString("Предок %1 отмеченного узла %2 тоже отмечен, следует не отмечать детей, если отмечен их предок.")
+            .arg(ancestorNodeNames, redundantNodeNames);
+    }
+
+    // 3. Проверка наличия узлов, которых не хватает для покрытия (missingNodes)
+    if (!missingNodes.isEmpty()) {
+        QString missingNodeNames;
+        for (Node* node : missingNodes) {
+            missingNodeNames += node->name + " ";
+        }
+        missingNodeNames = missingNodeNames.trimmed();
+        return QString("Узел %1 – не покрыт, следует отметить узлы %2 для того чтобы узел %1 стал покрытым.")
+            .arg(targetNode->name, missingNodeNames);
+    }
+
+    // 4. Если ошибок нет, возвращаем сообщение об успешном покрытии
+    QString selectedNodeNames;
+    for (Node* node : treeMap) {
+        if (node->shape == Node::Selected) {
+            selectedNodeNames += node->name + " ";
+        }
+    }
+    selectedNodeNames = selectedNodeNames.trimmed();
+    if (selectedNodeNames.isEmpty()) {
+        // Если нет отмеченных узлов, но покрытие полное (например, целевой узел без детей)
+        return QString("Целевой узел %1 покрыт.").arg(targetNode->name);
+    }
+    return QString("Помеченные узлы %1 покрывают вышележащий узел %2.")
+        .arg(selectedNodeNames, targetNode->name);
 }
