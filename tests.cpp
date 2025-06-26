@@ -8,7 +8,7 @@
 #define NODE_PARENT_HASH QHash<Node*, int>
 #define REDUNDANT_NODES QSet<QPair<Node*, Node*>>
 
-void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected, const QString& containerName) {
+void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected) {
     QSet<Node*> extraInActual = actual - expected; // Узлы которые есть в контейнере после вызова метода, но нет в ожидаемом контейнере
     QSet<Node*> extraInExpected = expected - actual; // Узлы которые есть в ожидаемом контейнере с узлами, но нет в контейнере после вызова метода
     QString extraActualNames, extraExpectedNames;
@@ -26,7 +26,7 @@ void Tests::printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>&
     }
 }
 
-void Tests::printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, const QSet<QList<Node*>>& expected, const QString& containerName) {
+void Tests::printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, const QSet<QList<Node*>>& expected) {
     QSet<QList<Node*>> extraInActual = actual - expected;
     QSet<QList<Node*>> extraInExpected = expected - actual;
     QString extraActualNames, extraExpectedNames;
@@ -55,7 +55,7 @@ void Tests::printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, co
     }
 }
 
-void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected, const QString& containerName) {
+void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected) {
     QSet<QPair<Node*, Node*>> extraInActual = actual - expected;
     QSet<QPair<Node*, Node*>> extraInExpected = expected - actual;
     QString extraActualNames, extraExpectedNames;
@@ -75,37 +75,24 @@ void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& 
     }
 }
 
-bool compareNodes(const Node* node1, const Node* node2, QSet<QPair<const Node*, const Node*>>& visited) {
-    // Проверка на уже посещённую пару для предотвращения рекурсии
-    QPair<const Node*, const Node*> pair(node1, node2);
-    if (visited.contains(pair)) {
-        return true; // Считаем узлы эквивалентными, если уже посещены
-    }
+bool Tests::compareNodes(QPair<const Node*, const Node*> pair, QSet<QPair<const Node*, const Node*>>& visited) {
+    const Node* node1 = pair.first;
+    const Node* node2 = pair.second;
+
+    if (!node1 || !node2) return false;
+    if (visited.contains(pair)) return true;
     visited.insert(pair);
 
-    // Проверка name и shape
-    if (node1->name != node2->name || node1->shape != node2->shape || node1->children.size() != node2->children.size()) {
-        return false;
-    }
+    // Проверка формы
+    if (node1->shape != node2->shape) return false;
 
-    // Сравнение children
-    QSet<Node*> children1(node1->children.begin(), node1->children.end());
-    QSet<Node*> children2(node2->children.begin(), node2->children.end());
-    if (children1.size() != children2.size()) {
-        return false;
-    }
+    // Проверка количества детей
+    if (node1->children.size() != node2->children.size()) return false;
 
-    for (Node* child1 : children1) {
-        bool foundMatch = false;
-        for (Node* child2 : children2) {
-            if (compareNodes(child1, child2, visited)) {
-                foundMatch = true;
-                break;
-            }
-        }
-        if (!foundMatch) {
-            return false;
-        }
+    // Проверка структуры детей
+    for (int i = 0; i < node1->children.size(); ++i) {
+        QPair<const Node*, const Node*> childPair(node1->children[i], node2->children[i]);
+        if (!compareNodes(childPair, visited)) return false;
     }
     return true;
 }
@@ -123,18 +110,28 @@ void Tests::parseDOT_test(){
         try {
             analyzer.parseDOT(content);
             QVERIFY(!analyzer.treeMap.isEmpty());
-            // Проверка размера treeMap
             QCOMPARE(analyzer.treeMap.size(), expectedTreeMap.size());
-            // Поэлементное сравнение treeMap
+
+            // Предварительная проверка имён
             QSet<QPair<const Node*, const Node*>> visited;
             for (int i = 0; i < analyzer.treeMap.size(); ++i) {
                 if (!analyzer.treeMap[i] || !expectedTreeMap[i]) {
-                    QFAIL(("Обнаружен нулевой указатель в treeMap или expectedTreeMap на индексе " + QString::number(i)).toUtf8());
+                    QFAIL(("Нулевой указатель на индексе " + QString::number(i)).toUtf8());
                 }
-                if (!compareNodes(analyzer.treeMap[i], expectedTreeMap[i], visited)) {
+                Node* actual = analyzer.treeMap[i];
+                Node* expected = expectedTreeMap[i];
+                if (actual->name != expected->name) {
+                    QString errorMsg = QString("Имена узлов различаются: Фактическое: %1, Ожидаемое: %2")
+                                           .arg(actual->name).arg(expected->name);
+                    QFAIL(errorMsg.toUtf8());
+                }
+
+                // Сравнение формы, количества и структуры детей
+                QPair<const Node*, const Node*> pair(actual, expected);
+                if (!compareNodes(pair, visited)) {
                     QFAIL(("Узлы различаются на индексе " + QString::number(i)).toUtf8());
                 }
-                visited.clear(); // Очищаем visited для следующей пары узлов
+                visited.clear();
             }
         } catch (const Error& e) {
             QFAIL("Не ожидалось исключение для корректного случая");
@@ -390,10 +387,10 @@ void Tests::treeGraphTakeErrors_test(){
 
     // Сравниваем заполнение контейнеров
     if (!QTest::qCompare(analyzer.rootNodes, expectedRootNodes, "analyzer.rootNodes", "expectedRootNodes", __FILE__, __LINE__)) {
-        printNodeSetDifference(analyzer.rootNodes, expectedRootNodes, "rootNodes");
+        printNodeSetDifference(analyzer.rootNodes, expectedRootNodes);
     }
     if (!QTest::qCompare(analyzer.multiParents, expectedMultiParents, "analyzer.multiParents", "expectedMultiParents", __FILE__, __LINE__)) {
-        printNodeSetDifference(analyzer.multiParents, expectedMultiParents, "multiParents");
+        printNodeSetDifference(analyzer.multiParents, expectedMultiParents);
     }
 
     // Проверка результатов
@@ -789,7 +786,7 @@ void Tests::hasCycles_test(){
 
     // Сравниваем заполнение контейнеров
     if (!QTest::qCompare(analyzer.cycles, expectedCycles, "analyzer.cycles", "expectedCycles", __FILE__, __LINE__)) {
-        printNodeSetDifferenceForCycles(analyzer.cycles, expectedCycles, "multiParents");
+        printNodeSetDifferenceForCycles(analyzer.cycles, expectedCycles);
     }
 
     // Проверка результатов
@@ -1121,7 +1118,7 @@ void Tests::analyzeZoneWithExtraNodes_test(){
 
     // Выводом разницы при провале
     if (!QTest::qCompare(analyzer.extraNodes, expectedExtraNodes, "analyzer.extraNodes", "expectedExtraNodes", __FILE__, __LINE__)) {
-        printNodeSetDifference(analyzer.extraNodes, expectedExtraNodes, "extraNodes");
+        printNodeSetDifference(analyzer.extraNodes, expectedExtraNodes);
     }
 
     // Проверка результатов
@@ -1377,7 +1374,7 @@ void Tests::analyzeZoneWithMissingNodes_test(){
 
     // Выводом разницы при провале
     if (!QTest::qCompare(analyzer.missingNodes, expectedMissingNodes, "analyzer.missingNodes", "expectedMissingNodes", __FILE__, __LINE__)) {
-        printNodeSetDifference(analyzer.missingNodes, expectedMissingNodes, "missingNodes");
+        printNodeSetDifference(analyzer.missingNodes, expectedMissingNodes);
     }
 
     // Проверка результатов
@@ -1892,7 +1889,7 @@ void Tests::analyzeZoneWithRedundant_test(){
 
     // Выводом разницы при провале
     if (!QTest::qCompare(analyzer.redundantNodes, expectedRedundantNodes, "analyzer.redundantNodes", "expectedRedundantNodes", __FILE__, __LINE__)) {
-        printNodeSetDifferenceForRedundant(analyzer.redundantNodes, expectedRedundantNodes, "redundantNodes");
+        printNodeSetDifferenceForRedundant(analyzer.redundantNodes, expectedRedundantNodes);
     }
 
     // Проверка результатов

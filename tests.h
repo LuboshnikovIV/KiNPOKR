@@ -46,26 +46,30 @@ private:
     * \brief Функция сравнивает внутренности контейнера (QSet<Node*>) и выводит их на экран в удобном для чтения виде
     * \param[in] actual - контейнер который был получен в результате выполнения программы
     * \param[in] expected - контейнер который ожидаем поучить
-    * \param[in,out] containerName - мя контейнера
     */
-    void printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected, const QString& containerName);
+    void printNodeSetDifference(const QSet<Node*>& actual, const QSet<Node*>& expected);
 
     /*!
     * \brief Функция сравнивает внутренности контейнера (QSet<QList<Node*>>) и выводит их на экран в удобном для чтения виде
     * \param[in] actual - контейнер который был получен в результате выполнения программы
     * \param[in] expected - контейнер который ожидаем поучить
-    * \param[in,out] containerName - имя контейнера
     */
-    void printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, const QSet<QList<Node*>>& expected, const QString& containerName);
+    void printNodeSetDifferenceForCycles(const QSet<QList<Node*>>& actual, const QSet<QList<Node*>>& expected);
 
     /*!
     * \brief Функция сравнивает внутренности контейнера (QSet<QPair<Node*, Node*>>) и выводит их на экран в удобном для чтения виде
     * \param[in] actual - контейнер который был получен в результате выполнения программы
     * \param[in] expected - контейнер который ожидаем поучить
-    * \param[in,out] containerName - имя контейнера
     */
-    void printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected, const QString& containerName);
+    void printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected);
 
+    /*!
+    * \brief Функция сравнивает два узла по форме, количеству детей и структуре детей, сохраняя порядок и учитывая цикл
+    * \param[in] pair - первый элемент пары: полученный узел от parseDOT, второй элемент: ожидаемый узел
+    * \param[in,out] visited - контейнер уже посещенных пар-узлов
+    * \return true - если форма, количество и структура детей совпадают, false - в противном случае
+    */
+    bool compareNodes(QPair<const Node*, const Node*> pair, QSet<QPair<const Node*, const Node*>>& visited);
 
 private slots:
     void parseDOT_test();
