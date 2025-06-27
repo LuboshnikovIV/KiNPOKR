@@ -144,20 +144,30 @@ bool Tests::compareNodes(QPair<const Node*, const Node*> pair, QSet<QPair<const 
     const Node* node1 = pair.first;
     const Node* node2 = pair.second;
 
-    if (!node1 || !node2) return false;
-    if (visited.contains(pair)) return true;
+    if (!node1 || !node2) {
+        return false;
+    }
+    if (visited.contains(pair)) {
+        return true;
+    }
     visited.insert(pair);
 
     // Проверка формы
-    if (node1->shape != node2->shape) return false;
+    if (node1->shape != node2->shape) {
+        return false;
+    }
 
     // Проверка количества детей
-    if (node1->children.size() != node2->children.size()) return false;
+    if (node1->children.size() != node2->children.size()) {
+        return false;
+    }
 
     // Проверка структуры детей
     for (int i = 0; i < node1->children.size(); ++i) {
         QPair<const Node*, const Node*> childPair(node1->children[i], node2->children[i]);
-        if (!compareNodes(childPair, visited)) return false;
+        if (!compareNodes(childPair, visited)) {
+            return false;
+        }
     }
     return true;
 }
@@ -193,7 +203,8 @@ void Tests::parseDOT_test() {
         } catch (...) {
             QFAIL("Неизвестное исключение в корректном случае");
         }
-    } else {
+    }
+    else {
         try {
             analyzer.parseDOT(content);
             if (analyzer.errors.isEmpty()) {
@@ -434,7 +445,8 @@ void Tests::treeGraphTakeErrors_test(){
             if (desiredRoot) {
                 analyzer.rootNodes.clear();
                 analyzer.rootNodes.insert(desiredRoot);
-            } else {
+            }
+            else {
                 qDebug() << "Ошибка: узел a не найден в amountOfParents";
             }
         }
@@ -2240,9 +2252,17 @@ void Tests::analyzeZoneWithRedundant_test_data(){
         addEdge(m, p, amountOfParents);
         addEdge(p, r, amountOfParents);
         QSet<QPair<Node*, Node*>> expectedRedundantNodes;
-        expectedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f) << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h) << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k) << qMakePair(a, l) << qMakePair(a, d) << qMakePair(a, m) << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p) << qMakePair(a, r);
+        expectedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f)
+                               << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h)
+                               << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k)
+                               << qMakePair(a, l) << qMakePair(a, d) << qMakePair(a, m)
+                               << qMakePair(a, n) << qMakePair(a, o) << qMakePair(a, p)
+                               << qMakePair(a, r);
         QSet<QPair<Node*, Node*>> predefinedRedundantNodes;
-        predefinedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f) << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h) << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k) << qMakePair(a, l);
+        predefinedRedundantNodes << qMakePair(a, b) << qMakePair(a, e) << qMakePair(a, f)
+                                 << qMakePair(a, g) << qMakePair(a, c) << qMakePair(a, h)
+                                 << qMakePair(a, j) << qMakePair(a, i) << qMakePair(a, k)
+                                 << qMakePair(a, l);
         QTest::newRow("AllNodesSelectedExceptTarget") << amountOfParents
                                                       << d
                                                       << expectedRedundantNodes

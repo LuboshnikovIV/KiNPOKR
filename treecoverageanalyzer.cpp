@@ -98,23 +98,27 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
                 QString shapeValue = attrMatch.captured(1);
                 if (shapeValue.startsWith('"') && shapeValue.endsWith('"')) {
                     shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
-                } else if (shapeValue.startsWith('\'') && shapeValue.endsWith('\'')) {
+                }
+                else if (shapeValue.startsWith('\'') && shapeValue.endsWith('\'')) {
                     shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
                 }
                 attrMap["shape"] = shapeValue;
 
                 if (attrMatch.captured(2).isEmpty()) {
                     // Если label отсутствует, ничего не делаем
-                } else {
+                }
+                else {
                     QString labelValue = attrMatch.captured(2);
                     if (labelValue.startsWith('"') && labelValue.endsWith('"')) {
                         labelValue = labelValue.mid(1, labelValue.length() - 2);
-                    } else if (labelValue.startsWith('\'') && labelValue.endsWith('\'')) {
+                    }
+                    else if (labelValue.startsWith('\'') && labelValue.endsWith('\'')) {
                         labelValue = labelValue.mid(1, labelValue.length() - 2);
                     }
                     attrMap["label"] = labelValue;
                 }
-            } else {
+            }
+            else {
                 errors.append(Error(Error::ExtraLabel, QString("для узла %1: %2").arg(name, attributesStr)));
                 continue;
             }
@@ -124,9 +128,11 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
                 if (shape == "square") {
                     nodeShape = Node::Target;
                     hasTargetNode = true;
-                } else if (shape == "diamond") {
+                }
+                else if (shape == "diamond") {
                     nodeShape = Node::Selected;
-                } else {
+                }
+                else {
                     shapeValid = false;
                     errors.append(Error(Error::InvalidNodeShape, name));
                     continue;
@@ -173,7 +179,8 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             QRegularExpressionMatch attrMatch = attrRegex.match(edgeAttrsStr);
             if (attrMatch.hasMatch()) {
                 errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(parentName, childName)));
-            } else {
+            }
+            else {
                 errors.append(Error(Error::ExtraLabel, QString("для ребра %1->%2: %3").arg(parentName, childName, edgeAttrsStr)));
             }
         }
@@ -214,7 +221,8 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             QRegularExpressionMatch attrMatch = attrRegex.match(edgeAttrsStr);
             if (attrMatch.hasMatch()) {
                 errors.append(Error(Error::EdgeLabel, QString("%1 и %2").arg(node1Name, node2Name)));
-            } else {
+            }
+            else {
                 errors.append(Error(Error::ExtraLabel, QString("для ребра %1--%2: %3").arg(node1Name, node2Name, edgeAttrsStr)));
             }
         }
@@ -277,7 +285,8 @@ void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParent
         if (parentCount >= 2) {
             multiParents.insert(node);
             errors.append(Error(Error::MultiParents, node->name));
-        } else if (parentCount == 0) {
+        }
+        else if (parentCount == 0) {
             rootNodes.insert(node);
         }
     }
@@ -309,7 +318,8 @@ void TreeCoverageAnalyzer::treeGraphTakeErrors(QHash<Node*, int>& amountOfParent
             if (firstSet) {
                 commonNodes = visitedSet;
                 firstSet = false;
-            } else {
+            }
+            else {
                 commonNodes.intersect(visitedSet);
             }
             if (commonNodes.isEmpty()) {
@@ -473,11 +483,13 @@ TreeCoverageAnalyzer::CoverageStatus TreeCoverageAnalyzer::analyzeZoneWithMissin
             if (childStatus == FullyCovered) {
                 allNotCovered = false;
                 hasFullyOrPartiallyCovered = true;
-            } else if (childStatus == PartiallyCovered) {
+            }
+            else if (childStatus == PartiallyCovered) {
                 allFullyCovered = false;
                 allNotCovered = false;
                 hasFullyOrPartiallyCovered = true;
-            } else if (childStatus == NotCovered) {
+            }
+            else if (childStatus == NotCovered) {
                 allFullyCovered = false;
                 notCoveredChildren.insert(child);
             }
@@ -523,8 +535,10 @@ void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node, Node* selec
         for (Node* child : node->children) {
             analyzeZoneWithMissingNodes(child);
         }
-    } else {
-        // 3. Иначе
+    }
+
+    // 3. Иначе
+    else {
         // 3.1. Если узел имеет тип Selected
         if (node->shape == Node::Selected) {
             // 3.1.1. Добавить его в список redundantNodes как пару (selectedNode, node)
@@ -535,7 +549,6 @@ void TreeCoverageAnalyzer::analyzeZoneWithRedundantNodes(Node* node, Node* selec
             analyzeZoneWithRedundantNodes(child, selectedNode);
         }
     }
-    // 4. Вернуться из рекурсии (автоматически)
 }
 
 void TreeCoverageAnalyzer::getResult() const {
@@ -566,8 +579,7 @@ void TreeCoverageAnalyzer::getResult() const {
             extraNodeNames += node->name + " ";
         }
         extraNodeNames = extraNodeNames.trimmed();
-        out << QString("Отмеченный узел %1 не является потомком целевого узла %2.\n")
-                   .arg(extraNodeNames, targetNode->name);
+        out << QString("Отмеченный узел %1 не является потомком целевого узла %2.\n").arg(extraNodeNames, targetNode->name);
         hasErrors = true;
     }
 
@@ -582,8 +594,7 @@ void TreeCoverageAnalyzer::getResult() const {
             redundantNodeNames += descendant->name + " ";
         }
         redundantNodeNames = redundantNodeNames.trimmed();
-        out << QString("Предок %1 отмеченного узла %2 тоже отмечен, следует не отмечать детей, если отмечен их предок.\n")
-                   .arg(ancestorNodeNames, redundantNodeNames);
+        out << QString("Предок %1 отмеченного узла %2 тоже отмечен, следует не отмечать детей, если отмечен их предок.\n").arg(ancestorNodeNames, redundantNodeNames);
         hasErrors = true;
     }
 
@@ -594,8 +605,7 @@ void TreeCoverageAnalyzer::getResult() const {
             missingNodeNames += node->name + " ";
         }
         missingNodeNames = missingNodeNames.trimmed();
-        out << QString("Узел %1 – не покрыт, следует отметить узлы %2 для того чтобы узел %1 стал покрытым.\n")
-                   .arg(targetNode->name, missingNodeNames);
+        out << QString("Узел %1 – не покрыт, следует отметить узлы %2 для того чтобы узел %1 стал покрытым.\n").arg(targetNode->name, missingNodeNames);
         hasErrors = true;
     }
 
@@ -610,9 +620,9 @@ void TreeCoverageAnalyzer::getResult() const {
         selectedNodeNames = selectedNodeNames.trimmed();
         if (selectedNodeNames.isEmpty()) {
             out << QString("Целевой узел %1 покрыт.\n").arg(targetNode->name);
-        } else {
-            out << QString("Помеченные узлы %1 покрывают вышележащий узел %2.\n")
-                       .arg(selectedNodeNames, targetNode->name);
+        }
+        else {
+            out << QString("Помеченные узлы %1 покрывают вышележащий узел %2.\n").arg(selectedNodeNames, targetNode->name);
         }
     }
 
