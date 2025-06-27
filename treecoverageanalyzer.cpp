@@ -55,83 +55,84 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
     }
 
     // Гибкое регулярное выражение для узлов
-    QRegularExpression nodeRegex(R"((\w+(?:,\w+)*)\s*\[(.*?)\]\s*;)");
+    QRegularExpression nodeRegex(R"((\w+(?:,\w+)*)\s*\[(.*?)\]\s*;|(\w+(?:,\w+)*)\s*;)");
     QRegularExpressionMatchIterator nodeIter = nodeRegex.globalMatch(content);
 
     bool hasTargetNode = false;
     QHash<QString, Node*> nodeNameMap;
 
+    // Обработка явно объявленных узлов
     while (nodeIter.hasNext()) {
         QRegularExpressionMatch match = nodeIter.next();
-        QString nodeList = match.captured(1);
+        QString nodeList = match.captured(1).isEmpty() ? match.captured(3) : match.captured(1);
         QString attributesStr = match.captured(2);
 
         QStringList nodes = nodeList.split(',');
         Node::Shape nodeShape = Node::Base;
-        bool shapeValid = false;
+        bool shapeValid = true;
 
-        // Регулярное выражение для атрибутов узлов: shape и, возможно, label
-        QRegularExpression attrRegex(R"(\s*shape\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)?)");
-        QRegularExpressionMatch attrMatch = attrRegex.match(attributesStr);
-        QMap<QString, QString> attrMap;
-
-        if (attrMatch.hasMatch()) {
-            QString shapeValue = attrMatch.captured(1);
-            if (shapeValue.startsWith('"') && shapeValue.endsWith('"')) {
-                shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
-            } else if (shapeValue.startsWith('\'') && shapeValue.endsWith('\'')) {
-                shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
-            }
-            attrMap["shape"] = shapeValue;
-
-            if (attrMatch.captured(2).isEmpty()) {
-                // Если label отсутствует, ничего не делаем
-            } else {
-                QString labelValue = attrMatch.captured(2);
-                if (labelValue.startsWith('"') && shapeValue.endsWith('"')) {
-                    labelValue = labelValue.mid(1, labelValue.length() - 2);
-                } else if (labelValue.startsWith('\'') && labelValue.endsWith('\'')) {
-                    labelValue = labelValue.mid(1, labelValue.length() - 2);
-                }
-                attrMap["label"] = labelValue;
-            }
+        // Если атрибуты отсутствуют, узел имеет форму по умолчанию (Base)
+        if (attributesStr.isEmpty()) {
+            nodeShape = Node::Base;
         } else {
-            // Если строка атрибутов не соответствует ожидаемому формату
-            for (const QString& name : nodes) {
-                errors.append(Error(Error::ExtraLabel, QString("для узла %1: %2").arg(name.trimmed(), attributesStr)));
-            }
-            continue;
-        }
+            // Регулярное выражение для атрибутов узлов: shape и, возможно, label
+            QRegularExpression attrRegex(R"(\s*shape\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)?)");
+            QRegularExpressionMatch attrMatch = attrRegex.match(attributesStr);
+            QMap<QString, QString> attrMap;
 
-        // Проверяем атрибут shape
-        QString shape = attrMap.value("shape").toLower();
-        if (!shape.isEmpty()) {
-            if (shape == "square") {
-                nodeShape = Node::Target;
-                hasTargetNode = true;
-                shapeValid = true;
-            } else if (shape == "diamond") {
-                nodeShape = Node::Selected;
-                shapeValid = true;
-            } else if (shape == "circle") {
-                nodeShape = Node::Base;
-                shapeValid = true;
-            }
-            if (!shapeValid) {
+            if (attrMatch.hasMatch()) {
+                QString shapeValue = attrMatch.captured(1);
+                if (shapeValue.startsWith('"') && shapeValue.endsWith('"')) {
+                    shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
+                } else if (shapeValue.startsWith('\'') && shapeValue.endsWith('\'')) {
+                    shapeValue = shapeValue.mid(1, shapeValue.length() - 2);
+                }
+                attrMap["shape"] = shapeValue;
+
+                if (attrMatch.captured(2).isEmpty()) {
+                    // Если label отсутствует, ничего не делаем
+                } else {
+                    QString labelValue = attrMatch.captured(2);
+                    if (labelValue.startsWith('"') && labelValue.endsWith('"')) {
+                        labelValue = labelValue.mid(1, labelValue.length() - 2);
+                    } else if (labelValue.startsWith('\'') && labelValue.endsWith('\'')) {
+                        labelValue = labelValue.mid(1, labelValue.length() - 2);
+                    }
+                    attrMap["label"] = labelValue;
+                }
+            } else {
+                // Если строка атрибутов не соответствует ожидаемому формату
                 for (const QString& name : nodes) {
-                    errors.append(Error(Error::InvalidNodeShape, name.trimmed()));
+                    errors.append(Error(Error::ExtraLabel, QString("для узла %1: %2").arg(name.trimmed(), attributesStr)));
                 }
                 continue;
             }
-        }
 
-        // Проверяем наличие label (ExtraLabel для узлов)
-        if (attrMap.contains("label")) {
-            for (const QString& name : nodes) {
-                errors.append(Error(Error::ExtraLabel, QString("для узла %1: label=\"%2\"").arg(name.trimmed(), attrMap["label"])));
+            // Проверяем атрибут shape
+            QString shape = attrMap.value("shape").toLower();
+            if (!shape.isEmpty()) {
+                if (shape == "square") {
+                    nodeShape = Node::Target;
+                    hasTargetNode = true;
+                } else if (shape == "diamond") {
+                    nodeShape = Node::Selected;
+                } else {
+                    shapeValid = false;
+                    for (const QString& name : nodes) {
+                        errors.append(Error(Error::InvalidNodeShape, name.trimmed()));
+                    }
+                    continue;
+                }
+            }
+            // Проверяем наличие label (ExtraLabel для узлов)
+            if (attrMap.contains("label")) {
+                for (const QString& name : nodes) {
+                    errors.append(Error(Error::ExtraLabel, QString("для узла %1: label=\"%2\"").arg(name.trimmed(), attrMap["label"])));
+                }
             }
         }
 
+        // Создаём узлы из списка
         for (const QString& name : nodes) {
             QString trimmedName = name.trimmed();
             if (nodeNameMap.contains(trimmedName)) {
@@ -141,11 +142,6 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
             treeMap.append(node);
             nodeNameMap[trimmedName] = node;
         }
-    }
-
-    if (!hasTargetNode) {
-        errors.append(Error(Error::NoTargetNode));
-        return;
     }
 
     // Обработка направленных связей
@@ -158,12 +154,20 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         QString childName = match.captured(2);
         QString edgeAttrsStr = match.captured(3);
 
+        // Создаём узлы, если они не были объявлены явно
+        if (!nodeNameMap.contains(parentName)) {
+            Node* parent = new Node(parentName, Node::Base);
+            treeMap.append(parent);
+            nodeNameMap[parentName] = parent;
+        }
+        if (!nodeNameMap.contains(childName)) {
+            Node* child = new Node(childName, Node::Base);
+            treeMap.append(child);
+            nodeNameMap[childName] = child;
+        }
+
         Node* parent = nodeNameMap.value(parentName);
         Node* child = nodeNameMap.value(childName);
-
-        if (!parent || !child) {
-            continue;
-        }
 
         parent->children.append(child);
         amountOfParents[child] = amountOfParents.value(child, 0) + 1;
@@ -192,12 +196,20 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         QString node2Name = match.captured(2);
         QString edgeAttrsStr = match.captured(3);
 
+        // Создаём узлы, если они не были объявлены явно
+        if (!nodeNameMap.contains(node1Name)) {
+            Node* node1 = new Node(node1Name, Node::Base);
+            treeMap.append(node1);
+            nodeNameMap[node1Name] = node1;
+        }
+        if (!nodeNameMap.contains(node2Name)) {
+            Node* node2 = new Node(node2Name, Node::Base);
+            treeMap.append(node2);
+            nodeNameMap[node2Name] = node2;
+        }
+
         Node* node1 = nodeNameMap.value(node1Name);
         Node* node2 = nodeNameMap.value(node2Name);
-
-        if (!node1 || !node2) {
-            continue;
-        }
 
         node1->children.append(node2);
         node2->children.append(node1);
@@ -218,6 +230,11 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
 
     if (hasUndirected) {
         errors.append(Error(Error::UndirectedEdge));
+    }
+
+    if (!hasTargetNode) {
+        errors.append(Error(Error::NoTargetNode));
+        return;
     }
 }
 
@@ -548,6 +565,8 @@ void TreeCoverageAnalyzer::getResult() const {
     }
     QTextStream out(&file);
 
+    bool hasErrors = false;
+
     // 1. Проверка наличия лишних узлов (узлы, не являющиеся потомками целевого узла)
     if (!extraNodes.isEmpty()) {
         QString extraNodeNames;
@@ -557,8 +576,7 @@ void TreeCoverageAnalyzer::getResult() const {
         extraNodeNames = extraNodeNames.trimmed();
         out << QString("Отмеченный узел %1 не является потомком целевого узла %2.\n")
                    .arg(extraNodeNames, targetNode->name);
-        file.close();
-        return;
+        hasErrors = true;
     }
 
     // 2. Проверка наличия избыточных узлов (redundantNodes)
@@ -566,7 +584,6 @@ void TreeCoverageAnalyzer::getResult() const {
         QString ancestorNodeNames;
         QString redundantNodeNames;
         for (const QPair<Node*, Node*>& pair : redundantNodes) {
-            // Проверяем, что первый узел в паре является предком второго
             Node* ancestor = pair.first;
             Node* descendant = pair.second;
             ancestorNodeNames += ancestor->name + " ";
@@ -575,8 +592,7 @@ void TreeCoverageAnalyzer::getResult() const {
         redundantNodeNames = redundantNodeNames.trimmed();
         out << QString("Предок %1 отмеченного узла %2 тоже отмечен, следует не отмечать детей, если отмечен их предок.\n")
                    .arg(ancestorNodeNames, redundantNodeNames);
-        file.close();
-        return;
+        hasErrors = true;
     }
 
     // 3. Проверка наличия узлов, которых не хватает для покрытия (missingNodes)
@@ -588,24 +604,25 @@ void TreeCoverageAnalyzer::getResult() const {
         missingNodeNames = missingNodeNames.trimmed();
         out << QString("Узел %1 – не покрыт, следует отметить узлы %2 для того чтобы узел %1 стал покрытым.\n")
                    .arg(targetNode->name, missingNodeNames);
-        file.close();
-        return;
+        hasErrors = true;
     }
 
     // 4. Если ошибок нет, возвращаем сообщение об успешном покрытии
-    QString selectedNodeNames;
-    for (Node* node : treeMap) {
-        if (node->shape == Node::Selected) {
-            selectedNodeNames += node->name + " ";
+    if (!hasErrors) {
+        QString selectedNodeNames;
+        for (Node* node : treeMap) {
+            if (node->shape == Node::Selected) {
+                selectedNodeNames += node->name + " ";
+            }
+        }
+        selectedNodeNames = selectedNodeNames.trimmed();
+        if (selectedNodeNames.isEmpty()) {
+            out << QString("Целевой узел %1 покрыт.\n").arg(targetNode->name);
+        } else {
+            out << QString("Помеченные узлы %1 покрывают вышележащий узел %2.\n")
+                       .arg(selectedNodeNames, targetNode->name);
         }
     }
-    selectedNodeNames = selectedNodeNames.trimmed();
-    if (selectedNodeNames.isEmpty()) {
-        // Если нет отмеченных узлов, но покрытие полное (например, целевой узел без детей)
-        out << QString("Целевой узел %1 покрыт.\n").arg(targetNode->name);
-    } else {
-        out << QString("Помеченные узлы %1 покрывают вышележащий узел %2.\n")
-                   .arg(selectedNodeNames, targetNode->name);
-    }
+
     file.close();
 }

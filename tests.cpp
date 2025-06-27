@@ -75,6 +75,71 @@ void Tests::printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& 
     }
 }
 
+void Tests::verifyNodes(const QSet<QString>& actualNames, const QSet<QString>& expectedNames,
+                        const QList<Node*>& actualTreeMap, const QList<Node*>& expectedTreeMap) {
+    // Проверяем совпадение размеров и имён
+    QCOMPARE(actualNames.size(), expectedNames.size());
+    if (actualNames != expectedNames) {
+        QString actualStr;
+        for (const QString& name : actualNames) {
+            if (!actualStr.isEmpty()) actualStr += " ";
+            actualStr += name;
+        }
+        QString expectedStr;
+        for (const QString& name : expectedNames) {
+            if (!expectedStr.isEmpty()) expectedStr += " ";
+            expectedStr += name;
+        }
+        QString errorMsg = QString("Имена узлов различаются: Фактическое: %1, Ожидаемое: %2")
+                               .arg(actualStr, expectedStr);
+        QFAIL(errorMsg.toUtf8());
+    }
+
+    // Создаём копии списков для модификации
+    QList<Node*> actualTreeMapCopy = actualTreeMap;
+    QList<Node*> expectedTreeMapCopy = expectedTreeMap;
+
+    // Проверяем форму и структуру для каждого узла
+    for (const QString& name : actualNames) {
+        Node* actualNode = nullptr;
+        int actualIndex = -1;
+        for (int i = 0; i < actualTreeMapCopy.size(); ++i) {
+            if (actualTreeMapCopy[i]->name == name) {
+                actualNode = actualTreeMapCopy[i];
+                actualIndex = i;
+                break;
+            }
+        }
+
+        Node* expectedNode = nullptr;
+        int expectedIndex = -1;
+        for (int i = 0; i < expectedTreeMapCopy.size(); ++i) {
+            if (expectedTreeMapCopy[i]->name == name) {
+                expectedNode = expectedTreeMapCopy[i];
+                expectedIndex = i;
+                break;
+            }
+        }
+
+        QVERIFY(actualNode && expectedNode);
+
+        // Удаляем найденные узлы из копий списков
+        if (actualIndex != -1) {
+            actualTreeMapCopy.removeAt(actualIndex);
+        }
+        if (expectedIndex != -1) {
+            expectedTreeMapCopy.removeAt(expectedIndex);
+        }
+
+        QPair<const Node*, const Node*> pair(actualNode, expectedNode);
+        QSet<QPair<const Node*, const Node*>> visited;
+        if (!compareNodes(pair, visited)) {
+            QString errorMsg = QString("Узлы с именем %1 различаются").arg(name);
+            QFAIL(errorMsg.toUtf8());
+        }
+    }
+}
+
 bool Tests::compareNodes(QPair<const Node*, const Node*> pair, QSet<QPair<const Node*, const Node*>>& visited) {
     const Node* node1 = pair.first;
     const Node* node2 = pair.second;
@@ -97,7 +162,7 @@ bool Tests::compareNodes(QPair<const Node*, const Node*> pair, QSet<QPair<const 
     return true;
 }
 
-void Tests::parseDOT_test(){
+void Tests::parseDOT_test() {
     QFETCH(QString, content);
     QFETCH(bool, shouldSucceed);
     QFETCH(QList<Error>, expectedErrors);
@@ -110,29 +175,19 @@ void Tests::parseDOT_test(){
         try {
             analyzer.parseDOT(content);
             QVERIFY(!analyzer.treeMap.isEmpty());
-            QCOMPARE(analyzer.treeMap.size(), expectedTreeMap.size());
 
-            // Предварительная проверка имён
-            QSet<QPair<const Node*, const Node*>> visited;
-            for (int i = 0; i < analyzer.treeMap.size(); ++i) {
-                if (!analyzer.treeMap[i] || !expectedTreeMap[i]) {
-                    QFAIL(("Нулевой указатель на индексе " + QString::number(i)).toUtf8());
-                }
-                Node* actual = analyzer.treeMap[i];
-                Node* expected = expectedTreeMap[i];
-                if (actual->name != expected->name) {
-                    QString errorMsg = QString("Имена узлов различаются: Фактическое: %1, Ожидаемое: %2")
-                                           .arg(actual->name).arg(expected->name);
-                    QFAIL(errorMsg.toUtf8());
-                }
-
-                // Сравнение формы, количества и структуры детей
-                QPair<const Node*, const Node*> pair(actual, expected);
-                if (!compareNodes(pair, visited)) {
-                    QFAIL(("Узлы различаются на индексе " + QString::number(i)).toUtf8());
-                }
-                visited.clear();
+            // Преобразуем treeMap и expectedTreeMap в множества имён
+            QSet<QString> actualNames;
+            for (Node* node : analyzer.treeMap) {
+                actualNames.insert(node->name);
             }
+            QSet<QString> expectedNames;
+            for (Node* node : expectedTreeMap) {
+                expectedNames.insert(node->name);
+            }
+
+            // Проверяем узлы
+            verifyNodes(actualNames, expectedNames, analyzer.treeMap, expectedTreeMap);
         } catch (const Error& e) {
             QFAIL("Не ожидалось исключение для корректного случая");
         } catch (...) {
@@ -144,14 +199,15 @@ void Tests::parseDOT_test(){
             if (analyzer.errors.isEmpty()) {
                 QFAIL("Ожидались ошибки для некорректного случая");
             }
+            //QCOMPARE(analyzer.errors, expectedErrors);
         } catch (const Error& e) {
-            QCOMPARE(analyzer.errors, expectedErrors); // Проверяем, что ошибки совпадают
+            QCOMPARE(analyzer.errors, expectedErrors);
         } catch (...) {
             QFAIL("Неизвестное исключение в некорректном случае");
         }
     }
 
-    // Отчистка результатов
+    // Очистка результатов
     analyzer.clearData();
     qDeleteAll(expectedTreeMap);
 }
@@ -164,184 +220,183 @@ void Tests::parseDOT_test_data(){
     // Тест 1: Пустой файл
     {
         QTest::newRow("EmptyFile") << ""
-                               << false
-                               << (QList<Error>{Error(Error::EmptyFile)})
-                               << QList<Node*>();
+                                   << false
+                                   << (QList<Error>{Error(Error::EmptyFile)})
+                                   << QList<Node*>();
     }
 
     // Тест 2: Отсутствует целевой узел
     {
-    QTest::newRow("NoTargetNode") << "digraph test {\n"
-                                                "a[shape=circle];\n"
-                                                "b[shape=diamond];\n"
-                                                "a->b;\n"
-                                                "}"
-                               << false
-                               << (QList<Error>{Error(Error::NoTargetNode)})
-                               << QList<Node*>();
+        QTest::newRow("NoTargetNode") << "digraph test {\n"
+                                         "a;\n"
+                                         "b[shape=diamond];\n"
+                                         "a->b;\n"
+                                         "}"
+                                      << false
+                                      << (QList<Error>{Error(Error::NoTargetNode)})
+                                      << QList<Node*>();
     }
 
     // Тест 3: Ненаправленная связь
     {
-    QTest::newRow("UndirectedEdge") << "graph test {\n"
-                                       "a[shape=square];\n"
-                                       "b[shape=diamond];\n"
-                                       "a--b;\n"
-                                       "}"
-                               << false
-                               << (QList<Error>{Error(Error::UndirectedEdge)})
-                               << QList<Node*>();
+        QTest::newRow("UndirectedEdge") << "graph test {\n"
+                                           "a[shape=square];\n"
+                                           "b[shape=diamond];\n"
+                                           "a--b;\n"
+                                           "}"
+                                        << false
+                                        << (QList<Error>{Error(Error::UndirectedEdge)})
+                                        << QList<Node*>();
     }
 
     // Тест 4: Метка на связи
     {
-    QTest::newRow("EdgeLabel") << "digraph test {\n"
-                                  "a[shape=square];\n"
-                                  "b[shape=diamond];\n"
-                                  "a->b[label=\"test\"];\n"
-                                  "}"
-                               << false
-                               << (QList<Error>{Error(Error::EdgeLabel)})
-                               << QList<Node*>();
+        QTest::newRow("EdgeLabel") << "digraph test {\n"
+                                      "a[shape=square];\n"
+                                      "b[shape=diamond];\n"
+                                      "a->b[label=\"test\"];\n"
+                                      "}"
+                                   << false
+                                   << (QList<Error>{Error(Error::EdgeLabel)})
+                                   << QList<Node*>();
     }
 
     // Тест 5: Неверная форма узла
     {
-    QTest::newRow("InvalidNodeShape") << "digraph test {\n"
-                                         "a[shape=square];\n"
-                                         "b[shape=star];\n"
-                                         "a->b;\n"
-                                         "}"
-                               << false
-                                      << (QList<Error>{Error(Error::InvalidNodeShape, "b")})
-                                   << QList<Node*>();
+        QTest::newRow("InvalidNodeShape") << "digraph test {\n"
+                                             "a[shape=square];\n"
+                                             "b[shape=circle];\n"
+                                             "a->b;\n"
+                                             "}"
+                                          << false
+                                          << (QList<Error>{Error(Error::InvalidNodeShape, "b")})
+                                          << QList<Node*>();
     }
 
     // Тест 6: Корректный граф
     {
-    QHash<Node*, int> amountOfParents;
-    QList<Node*> expectedTreeMap;
-    Node* a = createNode("a", Node::Shape::Target);
-    Node* b = createNode("b", Node::Shape::Selected);
-    Node* c = createNode("c", Node::Shape::Base);
-    addEdge(a, b, amountOfParents);
-    addEdge(a, c, amountOfParents);
-    expectedTreeMap << a << b << c;
-    QTest::newRow("CorrectGraph") << "digraph test {\n"
-                                     "a[shape=square];\n"
-                                     "b[shape=diamond];\n"
-                                     "c[shape=circle];\n"
-                                     "a->b;\n"
-                                     "a->c;\n"
-                                     "}"
-                               << true
-                                  << (QList<Error>{})
-                                   << expectedTreeMap;
+        QHash<Node*, int> amountOfParents;
+        QList<Node*> expectedTreeMap;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Selected);
+        Node* c = createNode("c", Node::Shape::Base);
+        addEdge(a, b, amountOfParents);
+        addEdge(a, c, amountOfParents);
+        expectedTreeMap << a << b << c;
+        QTest::newRow("CorrectGraph") << "digraph test {\n"
+                                         "a[shape=square];\n"
+                                         "b[shape=diamond];\n"
+                                         "a->b;\n"
+                                         "a->c;\n"
+                                         "}"
+                                      << true
+                                      << (QList<Error>{})
+                                      << expectedTreeMap;
     }
 
     // Тест 7: Дополнительная метка узла
     {
-    QTest::newRow("ExtraLabel") << "digraph test {\n"
-                                   "a[shape=square,label=\"test\"];\n"
-                                   "b[shape=diamond];\n"
-                                   "a->b;\n"
-                                   "}"
-                               << false
-                                << (QList<Error>{Error(Error::ExtraLabel, "a lable=\"test\"")})
-                                << QList<Node*>();
+        QTest::newRow("ExtraLabel") << "digraph test {\n"
+                                       "a[shape=square,label=\"test\"];\n"
+                                       "b[shape=diamond];\n"
+                                       "a->b;\n"
+                                       "}"
+                                    << false
+                                    << (QList<Error>{Error(Error::ExtraLabel, "для узла a: label=\"test\"")})
+                                    << QList<Node*>();
     }
 
     // Тест 8: Комплексный
     {
-    QTest::newRow("ComplexCase") << "graph test {\n"
-                                    "a[shape=circle,label=\"test\"];\n"
-                                    "b[shape=star];\n"
-                                    "a--b[label=\"test\"];\n"
-                                    "}"
-                               << false
-                                 << (QList<Error>{
-                                        Error(Error::ExtraLabel, "a label=\"test\""),
-                                        Error(Error::InvalidNodeShape, "b"),
-                                        Error(Error(Error::EdgeLabel)),
-                                        Error(Error::NoTargetNode)
-                                    })
-                                   << QList<Node*>();
+        QTest::newRow("ComplexCase") << "graph test {\n"
+                                        "a[label=\"test\"];\n"
+                                        "b[shape=star];\n"
+                                        "a--b[label=\"test\"];\n"
+                                        "}"
+                                     << false
+                                     << (QList<Error>{
+                                            Error(Error::ExtraLabel, "для узла a: label=\"test\""),
+                                            Error(Error::InvalidNodeShape, "b"),
+                                            Error(Error::EdgeLabel, "a и b"),
+                                            Error(Error::UndirectedEdge)
+                                        })
+                                     << QList<Node*>();
     }
 
     // Тест 9: Граф с циклом
     {
-    QList<Node*> expectedTreeMap;
-    Node* a = createNode("a", Node::Shape::Target);
-    Node* b = createNode("b", Node::Shape::Base);
-    Node* c = createNode("c", Node::Shape::Base);
-    Node* d = createNode("d", Node::Shape::Base);
-    a->children << b;
-    b->children << c;
-    c->children << d;
-    d->children << b;
-    expectedTreeMap << a << b << c << d;
-    QTest::newRow("GraphWithCycle") << "digraph test {\n"
-                                    "a[shape=square];\n"
-                                    "b,c,d[shape=circle];\n"
-                                    "a->b;\n"
-                                    "b->c;\n"
-                                    "c->d;\n"
-                                    "d->b;\n"
-                                    "}"
-                                 << true
-                                 << (QList<Error>{})
-                                   << expectedTreeMap;
+        QHash<Node*, int> amountOfParents;
+        QList<Node*> expectedTreeMap;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        a->children << b;
+        b->children << c;
+        c->children << d;
+        d->children << b;
+        expectedTreeMap << a << b << c << d;
+        QTest::newRow("GraphWithCycle") << "digraph test {\n"
+                                           "a[shape=square];\n"
+                                           "a->b;\n"
+                                           "b->c;\n"
+                                           "c->d;\n"
+                                           "d->b;\n"
+                                           "}"
+                                        << true
+                                        << (QList<Error>{})
+                                        << expectedTreeMap;
     }
 
     // Тест 10: Несвязный граф
     {
-    QList<Node*> expectedTreeMap;
-    Node* a = createNode("a", Node::Shape::Target);
-    Node* b = createNode("b", Node::Shape::Base);
-    Node* c = createNode("c", Node::Shape::Base);
-    Node* d = createNode("d", Node::Shape::Base);
-    Node* e = createNode("e", Node::Shape::Base);
-    a->children << b << c;
-    d->children << e;
-    expectedTreeMap << a << b << c << d << e;
-    QTest::newRow("DisconnectedGraph") << "digraph test {\n"
-                                       "a[shape=square];\n"
-                                       "b,c,d,e[shape=circle];\n"
-                                       "a->b;\n"
-                                       "a->c;\n"
-                                       "d->e;\n"
-                                       "}"
-                                    << true
-                                       << (QList<Error>{})
-                                   << expectedTreeMap;
+        QHash<Node*, int> amountOfParents;
+        QList<Node*> expectedTreeMap;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        a->children << b << c;
+        d->children << e;
+        expectedTreeMap << a << b << c << d << e;
+        QTest::newRow("DisconnectedGraph") << "digraph test {\n"
+                                              "a[shape=square];\n"
+                                              "a->b;\n"
+                                              "a->c;\n"
+                                              "d->e;\n"
+                                              "}"
+                                           << true
+                                           << (QList<Error>{})
+                                           << expectedTreeMap;
     }
 
     // Тест 11: Граф с летающим циклом
     {
-    QList<Node*> expectedTreeMap;
-    Node* a = createNode("a", Node::Shape::Target);
-    Node* b = createNode("b", Node::Shape::Base);
-    Node* c = createNode("c", Node::Shape::Base);
-    Node* d = createNode("d", Node::Shape::Base);
-    Node* e = createNode("e", Node::Shape::Base);
-    Node* f = createNode("f", Node::Shape::Base);
-    a->children << b << c;
-    d->children << e;
-    e->children << f;
-    f->children << d;
-    expectedTreeMap << a << b << c << d << e << f;
-    QTest::newRow("GraphWithLevitateCycle") << "digraph test {\n"
-                                          "a[shape=square];\n"
-                                          "b,c,d,e,f[shape=circle];\n"
-                                          "a->b;\n"
-                                          "a->c;\n"
-                                          "d->e;\n"
-                                          "e->f;\n"
-                                          "f->d;\n"
-                                          "}"
-                                       << true
-                                            << (QList<Error>{})
-                               << expectedTreeMap;
+        QHash<Node*, int> amountOfParents;
+        QList<Node*> expectedTreeMap;
+        Node* a = createNode("a", Node::Shape::Target);
+        Node* b = createNode("b", Node::Shape::Base);
+        Node* c = createNode("c", Node::Shape::Base);
+        Node* d = createNode("d", Node::Shape::Base);
+        Node* e = createNode("e", Node::Shape::Base);
+        Node* f = createNode("f", Node::Shape::Base);
+        a->children << b << c;
+        d->children << e;
+        e->children << f;
+        f->children << d;
+        expectedTreeMap << a << b << c << d << e << f;
+        QTest::newRow("GraphWithLevitateCycle") << "digraph test {\n"
+                                                   "a[shape=square];\n"
+                                                   "a->b;\n"
+                                                   "a->c;\n"
+                                                   "d->e;\n"
+                                                   "e->f;\n"
+                                                   "f->d;\n"
+                                                   "}"
+                                                << true
+                                                << (QList<Error>{})
+                                                << expectedTreeMap;
     }
 }
 

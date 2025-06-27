@@ -63,6 +63,8 @@ private:
     */
     void printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected);
 
+    void verifyNodes(const QSet<QString>& actualNames, const QSet<QString>& expectedNames, const QList<Node*>& actualTreeMap, const QList<Node*>& expectedTreeMap);
+
     /*!
     * \brief Функция сравнивает два узла по форме, количеству детей и структуре детей, сохраняя порядок и учитывая цикл
     * \param[in] pair - первый элемент пары: полученный узел от parseDOT, второй элемент: ожидаемый узел
