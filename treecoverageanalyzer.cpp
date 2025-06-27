@@ -352,7 +352,7 @@ void TreeCoverageAnalyzer::hasCycles(Node* node, QList<Node*>& currentPath) {
         cycleNames += node->name;
         cycles.insert(cycle);
         if (!errors.contains(Error(Error::Cycle))) {
-            errors.append(Error(Error::Cycle, QString("Граф не является деревом. В графе присутствует цикл %1").arg(cycleNames.trimmed())));
+            errors.append(Error(Error::Cycle, cycleNames.trimmed()));
         }
         return;
     }
