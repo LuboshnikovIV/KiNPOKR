@@ -47,35 +47,49 @@ void TreeCoverageAnalyzer::checkErrorsAfterTreeGraphTakeErrors() {
 }
 
 void TreeCoverageAnalyzer::parseDOT(const QString& content) {
-    clearData(); // Убеждаемся, что данные очищаются перед парсингом
+    clearData();
 
     if (content.trimmed().isEmpty()) {
         errors.append(Error(Error::EmptyFile));
         return;
     }
 
-    // Гибкое регулярное выражение для узлов
+    // Собираем все имена узлов и их атрибуты
     QRegularExpression nodeRegex(R"((\w+(?:,\w+)*)\s*\[(.*?)\]\s*;|(\w+(?:,\w+)*)\s*;)");
     QRegularExpressionMatchIterator nodeIter = nodeRegex.globalMatch(content);
+    QStringList nodeNames;
+    QMap<QString, QString> nodeAttributes; // Для хранения атрибутов
 
-    bool hasTargetNode = false;
-    QHash<QString, Node*> nodeNameMap;
-
-    // Обработка явно объявленных узлов
+    // Обработка узлов
     while (nodeIter.hasNext()) {
         QRegularExpressionMatch match = nodeIter.next();
         QString nodeList = match.captured(1).isEmpty() ? match.captured(3) : match.captured(1);
         QString attributesStr = match.captured(2);
-
         QStringList nodes = nodeList.split(',');
+        for (const QString& name : nodes) {
+            QString trimmedName = name.trimmed();
+            if (!nodeNames.contains(trimmedName)) {
+                nodeNames.append(trimmedName);
+            }
+            if (!attributesStr.isEmpty()) {
+                nodeAttributes[trimmedName] = attributesStr;
+            }
+        }
+    }
+
+    // Сортируем имена узлов для детерминированного порядка
+    nodeNames.sort();
+
+    bool hasTargetNode = false;
+    QHash<QString, Node*> nodeNameMap;
+
+    // Создаём узлы
+    for (const QString& name : nodeNames) {
         Node::Shape nodeShape = Node::Base;
         bool shapeValid = true;
+        QString attributesStr = nodeAttributes.value(name);
 
-        // Если атрибуты отсутствуют, узел имеет форму по умолчанию (Base)
-        if (attributesStr.isEmpty()) {
-            nodeShape = Node::Base;
-        } else {
-            // Регулярное выражение для атрибутов узлов: shape и, возможно, label
+        if (!attributesStr.isEmpty()) {
             QRegularExpression attrRegex(R"(\s*shape\s*=\s*(\w+|"[^"]*"|'[^']*')\s*(?:,\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)?)");
             QRegularExpressionMatch attrMatch = attrRegex.match(attributesStr);
             QMap<QString, QString> attrMap;
@@ -101,14 +115,10 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
                     attrMap["label"] = labelValue;
                 }
             } else {
-                // Если строка атрибутов не соответствует ожидаемому формату
-                for (const QString& name : nodes) {
-                    errors.append(Error(Error::ExtraLabel, QString("для узла %1: %2").arg(name.trimmed(), attributesStr)));
-                }
+                errors.append(Error(Error::ExtraLabel, QString("для узла %1: %2").arg(name, attributesStr)));
                 continue;
             }
 
-            // Проверяем атрибут shape
             QString shape = attrMap.value("shape").toLower();
             if (!shape.isEmpty()) {
                 if (shape == "square") {
@@ -118,43 +128,29 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
                     nodeShape = Node::Selected;
                 } else {
                     shapeValid = false;
-                    for (const QString& name : nodes) {
-                        errors.append(Error(Error::InvalidNodeShape, name.trimmed()));
-                    }
+                    errors.append(Error(Error::InvalidNodeShape, name));
                     continue;
                 }
             }
-            // Проверяем наличие label (ExtraLabel для узлов)
             if (attrMap.contains("label")) {
-                for (const QString& name : nodes) {
-                    errors.append(Error(Error::ExtraLabel, QString("для узла %1: label=\"%2\"").arg(name.trimmed(), attrMap["label"])));
-                }
+                errors.append(Error(Error::ExtraLabel, QString("для узла %1: label=\"%2\"").arg(name, attrMap["label"])));
             }
         }
 
-        // Создаём узлы из списка
-        for (const QString& name : nodes) {
-            QString trimmedName = name.trimmed();
-            if (nodeNameMap.contains(trimmedName)) {
-                continue;
-            }
-            Node* node = new Node(trimmedName, nodeShape);
-            treeMap.append(node);
-            nodeNameMap[trimmedName] = node;
-        }
+        Node* node = new Node(name, nodeShape);
+        treeMap.append(node);
+        nodeNameMap[name] = node;
     }
 
-    // Обработка направленных связей
+    // Обработка рёбер (остальной код остаётся без изменений)
     QRegularExpression edgeRegex(R"((\w+)\s*->\s*(\w+)\s*(?:\[([^\]]+)\])?\s*;)");
     QRegularExpressionMatchIterator edgeIter = edgeRegex.globalMatch(content);
-
     while (edgeIter.hasNext()) {
         QRegularExpressionMatch match = edgeIter.next();
         QString parentName = match.captured(1);
         QString childName = match.captured(2);
         QString edgeAttrsStr = match.captured(3);
 
-        // Создаём узлы, если они не были объявлены явно
         if (!nodeNameMap.contains(parentName)) {
             Node* parent = new Node(parentName, Node::Base);
             treeMap.append(parent);
@@ -172,7 +168,6 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         parent->children.append(child);
         amountOfParents[child] = amountOfParents.value(child, 0) + 1;
 
-        // Проверяем атрибуты ребра: только label
         if (!edgeAttrsStr.isEmpty()) {
             QRegularExpression attrRegex(R"(\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)");
             QRegularExpressionMatch attrMatch = attrRegex.match(edgeAttrsStr);
@@ -184,10 +179,9 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         }
     }
 
-    // Обработка ненаправленных рёбер
+    // Обработка ненаправленных рёбер (без изменений)
     QRegularExpression undirectedEdgeRegex(R"((\w+)\s*--\s*(\w+)\s*(?:\[([^\]]+)\])?\s*;)");
     QRegularExpressionMatchIterator undirectedIter = undirectedEdgeRegex.globalMatch(content);
-
     bool hasUndirected = false;
     while (undirectedIter.hasNext()) {
         hasUndirected = true;
@@ -196,7 +190,6 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         QString node2Name = match.captured(2);
         QString edgeAttrsStr = match.captured(3);
 
-        // Создаём узлы, если они не были объявлены явно
         if (!nodeNameMap.contains(node1Name)) {
             Node* node1 = new Node(node1Name, Node::Base);
             treeMap.append(node1);
@@ -216,7 +209,6 @@ void TreeCoverageAnalyzer::parseDOT(const QString& content) {
         amountOfParents[node2] = amountOfParents.value(node2, 0) + 1;
         amountOfParents[node1] = amountOfParents.value(node1, 0) + 1;
 
-        // Проверяем атрибуты ребра: только label
         if (!edgeAttrsStr.isEmpty()) {
             QRegularExpression attrRegex(R"(\s*label\s*=\s*(\w+|"[^"]*"|'[^']*')\s*)");
             QRegularExpressionMatch attrMatch = attrRegex.match(edgeAttrsStr);

@@ -15,8 +15,8 @@ TreeCoverageAnalyzerApp.exe input.dot output.txt
 * \endcode
 
 * \author Лубошников Иван
-* \date 25 Июня 2025
-* \version 1.0
+* \date 27 Июня 2025
+* \version 1.1
 */
 
 #include <QCoreApplication>

@@ -63,6 +63,13 @@ private:
     */
     void printNodeSetDifferenceForRedundant(const QSet<QPair<Node*, Node*>>& actual, const QSet<QPair<Node*, Node*>>& expected);
 
+    /*!
+    * \brief Функция сравнивает два узла по имени, а если нахожит различие выдает ошибку нужную для тестирования
+    * \param[in] actualNames - список имен найденных в считанном контейнере узлов
+    * \param[in] expectedNames - список имен найденных в ожидаемом контейнере узлов
+    * \param[in] actualTreeMap - считанный контейнер узлов
+    * \param[in] expectedTreeMap - ожидаемый контейнер узлов
+    */
     void verifyNodes(const QSet<QString>& actualNames, const QSet<QString>& expectedNames, const QList<Node*>& actualTreeMap, const QList<Node*>& expectedTreeMap);
 
     /*!
